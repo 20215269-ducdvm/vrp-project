@@ -71,7 +71,6 @@ def parse_problem_lines(lines):
     # t is travel time matrix t[0..location_number][0..location_number]
     # denoting travel time between t[i][j] (it is symmetric)
     # n is location number (depot + customers) (fixed to 101 in Solomon problem set)
-    n = 1
     # q[i] is demand of customer c[i]
     # Q[k] is capacity of k th vehicle
     # s[i] is service duration of consumer c[i]
@@ -86,8 +85,12 @@ def parse_problem_lines(lines):
         customer_dict = {'number': number, 'coords': (xcoord, ycoord),
                          'demand': demand, 'ready': ready, 'due': due, 'service_time': service_time}
         customer_list.append(customer_dict)
-    problem_instance['coords'] = coords
+
     n = len(customer_list)
+
+    problem_instance['location_number'] = n
+    problem_instance['coords'] = coords
+
     # initialize variables
     q = [0] * n  # Initialize list of zeros with length n
     s = [0] * n
@@ -105,14 +108,13 @@ def parse_problem_lines(lines):
     for i in range(n):
         for j in range(n):            
             value = distance(get_coords(customer_list, i), get_coords(customer_list, j))
-            t[i][j] = t[j][i] = multiply_and_floor(value)
+            t[i][j] = t[j][i] = multiply_and_floor(value) # to avoid floating point arithmetic errors like 1.0000000000000002
 
     problem_instance['demand'] = q
     problem_instance['service_duration'] = s
     problem_instance['time_window_start'] = e
     problem_instance['time_window_end'] = l
     problem_instance['t'] = t
-    problem_instance['location_number'] = n
 
     return problem_instance
 

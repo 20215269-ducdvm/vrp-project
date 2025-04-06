@@ -184,7 +184,7 @@ class HarmonySearch(HarmonySearchTemplate):
 
     def _initialize(self, initial_harmonies=None):
         """
-            Initialize harmony_memory, the matrix (list of lists) containing the various harmonies (solution vectors). Note
+            Initialize harmony_memory, the matrix (list of lists) containing the various harmonies (curr_solution vectors). Note
             that we aren't actually doing any matrix operations, so a library like NumPy isn't necessary here. The matrix
             merely stores previous harmonies.
 
@@ -275,7 +275,7 @@ class HarmonySearch(HarmonySearchTemplate):
                 self._harmony_memory[worst_index] = (considered_harmony, considered_fitness)
 
 
-class HarmonySearchWithConstraints(HarmonySearchTemplate):
+class HarmonySearchVRPTW(HarmonySearchTemplate):
     """
         This class implements the harmony search (HS) global optimization algorithm. In general, what you'll do is this:
 
@@ -309,6 +309,9 @@ class HarmonySearchWithConstraints(HarmonySearchTemplate):
             # generate new harmony
             harmony = list()
 
+            # compute new par
+            # self._obj_fun.compute_par(num_imp)
+
             for i in range(0, self._obj_fun.get_num_parameters()):
                 if random.random() <= self._obj_fun.get_hmcr():
                     self._memory_consideration(harmony, i)
@@ -339,11 +342,18 @@ class HarmonySearchWithConstraints(HarmonySearchTemplate):
 
     def _initialize(self, initial_harmonies=None):
         """
-            Initialize harmony_memory, the matrix (list of lists) containing the various harmonies (solution vectors). Note
+            Initialize harmony_memory, the matrix (list of lists) containing the various harmonies (curr_solution vectors). Note
             that we aren't actually doing any matrix operations, so a library like NumPy isn't necessary here. The matrix
             merely stores previous harmonies.
 
             If harmonies are provided, then use them instead of randomly initializing them.
+
+            If a generated harmony is infeasible, we calculate the degree of violation and use it as the fitness value.
+
+            The harmony memory is divided into two parts: feasible and infeasible harmonies. The feasible harmonies are
+            stored in the first part of the memory, while the infeasible harmonies are stored in the second part. The
+            infeasible harmonies are sorted in ascending order of the degree of violation. The worst infeasible harmony
+            is the one with the highest degree of violation.
 
             Populate harmony_history with initial harmony memory.
         """
@@ -359,21 +369,72 @@ class HarmonySearchWithConstraints(HarmonySearchTemplate):
                 if num_parameters_initial_harmonies != num_parameters:
                     raise ValueError('Number of parameters in initial harmonies does not match that defined.')
         else:
+            def insert_harmony_to_memory(harmony_memory, new_harmony, fitness):
+                """
+                Insert a new harmony into the harmony memory in the appropriate position.
+
+                :param harmony_memory: List of tuples (harmony, fitness)
+                :param new_harmony: The new harmony to insert
+                :param fitness: The fitness value of the new harmony
+
+                :return:
+                    Updated harmony memory with the new harmony inserted
+                """
+                if not harmony_memory:
+                    return [(new_harmony, fitness)]
+
+                # create the new entry
+                new_entry = (new_harmony, fitness)
+
+                # copy the memory to avoid modifying the original
+                updated_memory = harmony_memory.copy()
+
+                # split the memory into valid (fitness > 0) and invalid (fitness < 0) solutions
+                valid_solutions = [entry for entry in updated_memory if entry[1] > 0]
+                invalid_solutions = [entry for entry in updated_memory if entry[1] < 0]
+
+                # insert the new entry based on its fitness value
+                if fitness > 0:  # valid curr_solution
+                    # insert into valid solutions in ascending order
+                    inserted = False
+                    for i, (_, existing_fitness) in enumerate(valid_solutions):
+                        if fitness < existing_fitness:  # found the position
+                            valid_solutions.insert(i, new_entry)
+                            inserted = True
+                            break
+                    if not inserted:  # if it's larger than all existing values
+                        valid_solutions.append(new_entry)
+
+                else:  # invalid curr_solution (fitness < 0)
+                    # insert into invalid solutions in descending order
+                    inserted = False
+                    for i, (_, existing_fitness) in enumerate(invalid_solutions):
+                        if fitness > existing_fitness:  # found the position
+                            invalid_solutions.insert(i, new_entry)
+                            inserted = True
+                            break
+                    if not inserted:  # if it's smaller than all existing values
+                        invalid_solutions.append(new_entry)
+
+                # combine valid and invalid solutions
+                updated_memory = valid_solutions + invalid_solutions
+
+                return updated_memory
+
+            # MAIN PART
             initial_harmonies = list()
             for i in range(0, self._obj_fun.get_hms()):
                 while True:
                     harmony = list()
                     for j in range(0, self._obj_fun.get_num_parameters()):
                         self._random_selection(harmony, j)
-                    # print(harmony, self._obj_fun.check_constraints(harmony))
-                    if self._obj_fun.check_constraints(harmony):
+                    fitness = self._obj_fun.get_fitness(harmony)
+                    if fitness > float('-inf'):
                         break
-                initial_harmonies.append(harmony)
+                initial_harmonies = insert_harmony_to_memory(initial_harmonies, harmony, fitness)
 
-        for i in range(0, self._obj_fun.get_hms()):
-            fitness = self._obj_fun.get_fitness(initial_harmonies[i])
-            self._harmony_memory.append((initial_harmonies[i], fitness))
-
+        self._harmony_memory = initial_harmonies
+        # print(initial_harmonies, len(initial_harmonies))
         harmony_list = {'gen': 0, 'harmonies': copy.deepcopy(self._harmony_memory)}
         self._harmony_history.append(harmony_list)
 
@@ -418,18 +479,57 @@ class HarmonySearchWithConstraints(HarmonySearchTemplate):
 
     def _update_harmony_memory(self, considered_harmony, considered_fitness):
         """
-            Update the harmony memory if necessary with the given harmony. If the given harmony is better than the worst
-            harmony in memory, replace it. This function doesn't allow duplicate harmonies in memory.
+        Update the harmony memory if necessary with the given harmony.
+        The decision process depends on the feasibility of the considered harmony.
+        :param considered_harmony: The new harmony to consider
+        :param considered_fitness: The fitness value of the new harmony
         """
-        if (considered_harmony, considered_fitness) not in self._harmony_memory and self._obj_fun.check_constraints(
-                considered_harmony):
-            worst_index = None
-            worst_fitness = float('+inf') if self._obj_fun.maximize() else float('-inf')
-            for i, (harmony, fitness) in enumerate(self._harmony_memory):
-                if (self._obj_fun.maximize() and fitness < worst_fitness) or (
-                        not self._obj_fun.maximize() and fitness > worst_fitness):
-                    worst_index = i
-                    worst_fitness = fitness
-            if (self._obj_fun.maximize() and considered_fitness > worst_fitness) or (
-                    not self._obj_fun.maximize() and considered_fitness < worst_fitness):
-                self._harmony_memory[worst_index] = (considered_harmony, considered_fitness)
+        # check if the harmony is already in memory
+        if (considered_harmony, considered_fitness) in self._harmony_memory or considered_fitness == float('-inf'):
+            return  # no duplicates allowed
+
+        # split memory into valid (fitness > 0) and invalid (fitness < 0) solutions
+        valid_solutions = [(h, f) for h, f in self._harmony_memory if f > 0]
+        invalid_solutions = [(h, f) for h, f in self._harmony_memory if f <= 0]
+
+        # case 1: considered harmony is feasible (fitness > 0)
+        if considered_fitness > 0:
+            # find the appropriate position to insert in valid solutions (ascending order)
+            insertion_index = len(valid_solutions)
+            for i, (_, fitness) in enumerate(valid_solutions):
+                if considered_fitness < fitness:  # found position (ascending order)
+                    insertion_index = i
+                    break
+
+            # insert into valid solutions
+            valid_solutions.insert(insertion_index, (considered_harmony, considered_fitness))
+
+            # remove worst infeasible harmony if exists
+            if invalid_solutions:
+                # for infeasible solutions, the worst is the one with smallest fitness (most negative)
+                invalid_solutions = invalid_solutions[:-1]  # remove the last element (worst one)
+
+        # case 2: considered harmony is infeasible (fitness <= 0)
+        else:
+            # check if the worst harmony in memory is feasible
+            if not self._harmony_memory:  # empty memory case
+                invalid_solutions.append((considered_harmony, considered_fitness))
+            elif len(valid_solutions) == len(self._harmony_memory):  # all harmonies are feasible
+                # don't insert the considered harmony
+                pass
+            else:  # there are some infeasible harmonies
+                # find the appropriate position to insert in invalid solutions (descending order)
+                insertion_index = len(invalid_solutions)
+                for i, (_, fitness) in enumerate(invalid_solutions):
+                    if considered_fitness > fitness:  # found position (descending order)
+                        insertion_index = i
+                        break
+
+                # insert into invalid solutions
+                if insertion_index < len(invalid_solutions):
+                    invalid_solutions.insert(insertion_index, (considered_harmony, considered_fitness))
+                    # remove the worst infeasible harmony (the last one after sorting)
+                    invalid_solutions = invalid_solutions[:-1]
+
+        # update harmony memory with the modified valid and invalid solutions
+        self._harmony_memory = valid_solutions + invalid_solutions

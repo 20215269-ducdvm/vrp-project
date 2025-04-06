@@ -32,7 +32,7 @@ class ObjectiveFunctionInterface(object):
 
     def get_fitness(self, vector):
         """
-            Return the objective function value given a solution vector containing each decision variable. In practice,
+            Return the objective function value given a curr_solution vector containing each decision variable. In practice,
             vector should be a list of parameters.
 
             For example, suppose the objective function is (-(x^2 + (y+1)^2) + 4). A possible call to fitness may look like this:
@@ -163,7 +163,7 @@ class ObjectiveFunctionInterface(object):
     def use_random_seed(self):
         """
             Return whether a random seed should be used. If a random seed is used, the same result will be generated each time (i.e., multiple
-            HS iterations will return the same best solution).
+            HS iterations will return the same best curr_solution).
         """
         raise NotImplementedError(inspect.stack()[0][3])
 

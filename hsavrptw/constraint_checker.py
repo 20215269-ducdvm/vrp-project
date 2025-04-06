@@ -1,7 +1,14 @@
-from abc import ABC, abstractmethod
-from typing import Any
+#!/usr/bin/python
+"""hsa
 
-from problem_parser import truncate_to_decimal
+Usage:
+    hsa.py <problem_instance>
+"""
+from abc import ABC, abstractmethod
+from typing import Any, List
+
+from docopt import docopt
+from problem_parser import truncate_to_decimal, parse_problem
 
 
 class VRPTWAbstractConstraintChecker(ABC):
@@ -34,30 +41,34 @@ class VRPTWAbstractConstraintChecker(ABC):
         self.l = problem_instance['time_window_end']  # end of time window for each customer
         return self
 
-    def check_constraints(self, x):
+    def get_constraints_value(self, x) -> float:
+        """
+        Check if the curr_solution satisfies all constraints
+        :param x: curr_solution to check
+        :return: True if the curr_solution satisfies all constraints, False if violated basic VRP constraints (customer is visited by more than one vehicle, vehicle does not start from depot, customer is not served), degree of violation if violated time window or capacity constraints
+        """
+        violated_degree = 0
+        if self.vehicle_number_exceed(x):
+            return float('-inf')
 
         # Only one vehicle arriving at each customer and only one vehicle departing from each customer
         # This means that each customer is served by exactly one vehicle
         if not self._is_served_by_one_vehicle(x):
             # print("Customer is served by more than one vehicle")
-            return False
+            return float('-inf')
 
-        # vehicle capacity is not exceeded
-        if not self._vehicle_capacity_not_exceeded(x):
-            # print("Vehicle capacity exceeded")
-            return False
+        # keep track of the degree of capacity violation
+        violated_degree += self._exceed_vehicle_capacity(x)
 
         # every vehicle starts from depot
         if not self.every_vehicle_starts_from_depot(x):
             # print("Vehicle does not start from depot")
-            return False
+            return float('-inf')
 
-        # time window constraints are not violated
-        if not self._time_window_constraints_not_violated(x):
-            # print("Time window constraints violated")
-            return False
+        # keep track of the degree of time window violation
+        violated_degree += self._time_windows_violated(x)
 
-        return True
+        return violated_degree
 
     def _is_served_by_one_vehicle(self, x) -> bool:
         # Track the number of vehicles arriving at each customer
@@ -76,6 +87,7 @@ class VRPTWAbstractConstraintChecker(ABC):
                     return False
 
         self.y = arrived_customers
+
         # Each customer is served by exactly one vehicle
         for i in range(1, self.n):
             total_visited = 0
@@ -87,20 +99,25 @@ class VRPTWAbstractConstraintChecker(ABC):
 
         return True
 
-    def _vehicle_capacity_not_exceeded(self, x) -> bool:
+    def _exceed_vehicle_capacity(self, x) -> int:
+        capacity_violated = 0
         for k in range(self.v):
             total = 0
             for i in range(self.n):
                 total = total + self.y[i][k] * self.q[i]
-            if total > self.capacity:
-                return False
-        return True
+            capacity_violated += max(0, total - self.capacity)
+        return capacity_violated
 
     def every_vehicle_starts_from_depot(self, x) -> bool:
         for k in range(self.v):
             if self.y[0][k] != 1:
                 return False
         return True
+
+    @abstractmethod
+    def vehicle_number_exceed(self, x) -> bool:
+        """Check if the number of vehicles in the curr_solution exceeds the required number"""
+        pass
 
     @abstractmethod
     def track_arrival(self, x) -> list[list[int]]:
@@ -112,8 +129,9 @@ class VRPTWAbstractConstraintChecker(ABC):
         """Track the number of vehicles departing from each customer"""
         pass
 
-    def _time_window_constraints_not_violated(self, x) -> bool:
+    def _time_windows_violated(self, x) -> int:
         location_count = 0
+        violation_degree = 0
         for k in range(self.v):
             current_location = 0
             while True:
@@ -128,7 +146,7 @@ class VRPTWAbstractConstraintChecker(ABC):
                 # calculate arrival time at next location
                 self.a[next_location] = self.a[current_location] + self.W[current_location] + self.s[current_location] + \
                                         truncate_to_decimal(self.t[current_location][
-                                            next_location])
+                                                                next_location])
 
                 # waiting time is either service start time - arriving time or 0
                 # vehicle can arrive at a customer before time window, but it has to wait until the time window starts
@@ -137,115 +155,120 @@ class VRPTWAbstractConstraintChecker(ABC):
                 # customer cannot be served after end of time window
                 if self.a[next_location] > self.l[next_location]:
                     # print("Time window constraint violated at customer", next_location)
-                    return False
+                    violation_degree += self.l[next_location] - self.a[next_location]
                 current_location = next_location
 
         if location_count - self.v + 1 != self.n:
             # print("Not all customers are served")
-            return False
+            return float('-inf')
 
-        return True
+        return violation_degree
 
     @abstractmethod
     def find_next_location(self, x, current_location, k) -> int | None:
-        """Find next location according to how the solution is encoded, the current location and the current vehicle"""
+        """
+        Find next location according to how the curr_solution is encoded, the current location and the current vehicle
+        :param x: curr_solution to check
+        :param current_location: current location
+        :param k: current vehicle
+        :return: next location if exists, None otherwise
+        """
         pass
 
 
-class VRPTWBinaryVectorConstraintChecker(VRPTWAbstractConstraintChecker):
+
+
+class VRPTWNormalVectorConstraintChecker(VRPTWAbstractConstraintChecker):
     """
-    Checker for binary representation of solution
-    Scrap this sht. Too many parameters, search space is too huge.
+    Checker for normal representation of curr_solution
     """
 
-    def track_arrival(self, x) -> list[list[int]]:
+    def track_arrival(self, x) -> list[list[int]] | None:
         arrived = [[0 for _ in range(self.v)] for _ in range(self.n)]
-
-        for k in range(self.v):
-            for j in range(self.n):
-                for i in range(self.n):
-                    arrived[j][k] += x[i][j][k]
+        for vehicle, route in enumerate(x):
+            for i in range(len(route) - 1):
+                arrived[route[i]][vehicle] += 1
         return arrived
 
-    def track_departure(self, x) -> list[list[int]]:
+    def track_departure(self, x) -> list[list[int]] | None:
         departed = [[0 for _ in range(self.v)] for _ in range(self.n)]
-
-        for k in range(self.v):
-            for i in range(self.n):
-                for j in range(self.n):
-                    departed[i][k] += x[i][j][k]
+        for vehicle, route in enumerate(x):
+            for i in range(len(route) - 1):
+                departed[route[i]][vehicle] += 1
         return departed
 
-    def find_next_location(self, x, current_location, k):
-        for j in range(self.n):
-            if x[current_location][j][k] == 1:
-                return j
+    def find_next_location(self, x, current_location, k) -> int | None:
+        for vehicle, route in enumerate(x):
+            if vehicle == k:
+                for i in range(len(route) - 1):
+                    if route[i] == current_location:
+                        return route[i + 1]
         return None
+
+    def every_vehicle_starts_from_depot(self, x) -> bool:
+        for vehicle, route in enumerate(x):
+            if route[0] != 0:
+                return False
+        return True
 
 
 def _check_for_duplicates(x):
     return len(x) == len(set(x))
 
 
+def solution_to_routes(solution, depot=0):
+    """
+    Convert a flat curr_solution list to a list of routes.
+
+    Args:
+        solution (list): List representing the curr_solution with zeros as route delimiters
+        depot (int, optional): The depot identifier. Defaults to 0.
+
+    Returns:
+        list: List of routes where each route starts and ends with the depot
+    """
+    routes = []
+    current_route = [depot]  # start with depot
+
+    for node in solution:
+        if node == depot:
+            # complete the current route by adding the depot
+            current_route.append(depot)
+            # add the completed route to routes if it contains nodes other than depot
+            if len(current_route) > 2:  # More than just [depot, depot]
+                routes.append(current_route)
+            # start a new route
+            current_route = [depot]
+        else:
+            # add node to current route
+            current_route.append(node)
+
+    # check if the last route is incomplete (doesn't end with depot)
+    if len(current_route) > 1:  # Has at least one node besides depot
+        current_route.append(depot)
+        routes.append(current_route)
+
+    return routes
+
+
 class VRPTWSequentialVectorConstraintChecker(VRPTWAbstractConstraintChecker):
     """
-    Checker for sequential representation of solution
+    Checker for sequential representation of curr_solution
     Should go with the VRPTWObjectiveFunctionSequentialVector class.
     """
-
-    # Valid cases: [1, 4, 2, 5, 3], [3, 2, 4, 1, 0], [1, 2, 3, 4, 0]
-    # Invalid cases: [3, 2, 0, 1, 4], [4, 1, 2, 3, 5].
-    # Rule: If there is a 0, we should immediately understand that there's no more vehicles to check,
-    # any positive number comes after it completely invalidates the candidate solution.
-
     def __init__(self):
         super().__init__()
-        self.routes = None
-
-    def convert_to_list_of_routes(self, x) -> list[tuple[int | Any, list[Any]]] | None:
-        if not _check_for_duplicates(x):
-            return None
-        routes = []  # list to store the visited customers by vehicle k
-        temp_route = [0]
-        vehicle_list = [i for i in range(self.v)]
-        temp_vehicle_list = []
-        idx = 0
-        while True:
-            if idx < len(x) - 1:
-                if x[idx] == 0:
-                    if x[idx + 1] != 0:
-                        return None
-                elif 0 < x[idx] <= self.n - 1:
-                    temp_route.append(x[idx])
-                elif x[idx] <= self.n + self.v - 2:
-                    vehicle_number = x[idx] - self.n
-                    temp_vehicle_list.append(vehicle_number)
-                    temp_route.append(0)
-                    routes.append((vehicle_number, temp_route))  # add the route to the list
-                    temp_route = [0]  # reset the route
-            else:
-                if x[idx] == 0:
-                    pass
-                elif x[idx] <= self.n - 1:
-                    temp_route.extend([x[idx], 0])
-                    vehicle_number = next((v for v in vehicle_list if v not in temp_vehicle_list), None)
-                    routes.append((vehicle_number, temp_route))
-                else:
-                    vehicle_number = x[idx] - self.n
-                    temp_route.append(0)
-                    temp_vehicle_list.append(vehicle_number)
-                    routes.append((vehicle_number, temp_route))
-                break
-            idx += 1
-
-        return routes
+        self.routes = None    
+    def vehicle_number_exceed(self, x) -> bool:
+        self.routes = solution_to_routes(x)
+        return len(self.routes) > self.v
 
     def track_arrival(self, x) -> list[list[int]] | None:
-        self.routes = self.convert_to_list_of_routes(x)
+        self.routes = solution_to_routes(x)
         if self.routes is None:
             return None
         arrived = [[0 for _ in range(self.v)] for _ in range(self.n)]
-        for vehicle, route in self.routes:
+        for vehicle, route in enumerate(self.routes):
             for i in range(len(route) - 1):
                 arrived[route[i]][vehicle] += 1
         return arrived
@@ -254,16 +277,16 @@ class VRPTWSequentialVectorConstraintChecker(VRPTWAbstractConstraintChecker):
         departed = [[0 for _ in range(self.v)] for _ in range(self.n)]
         if self.routes is None:
             return None
-        for vehicle, route in self.routes:
+        for vehicle, route in enumerate(self.routes):
             for i in range(len(route) - 1):
                 departed[route[i]][vehicle] += 1
         return departed
 
     def find_next_location(self, x, current_location, k) -> int | None:
-        self.routes = self.convert_to_list_of_routes(x)
+        self.routes = solution_to_routes(x)
         if self.routes is None:
             return None
-        for vehicle, route in self.routes:
+        for vehicle, route in enumerate(self.routes):
             if vehicle == k:
                 for i in range(len(route) - 1):
                     if route[i] == current_location:
@@ -271,35 +294,23 @@ class VRPTWSequentialVectorConstraintChecker(VRPTWAbstractConstraintChecker):
         return None
 
     def every_vehicle_starts_from_depot(self, x) -> bool:
-        self.routes = self.convert_to_list_of_routes(x)
-        for vehicle, route in self.routes:
+        self.routes = solution_to_routes(x)
+        for vehicle, route in enumerate(self.routes):
             if route[0] != 0:
                 return False
         return True
 
+
 if __name__ == '__main__':
-    x1 = [1, 7, 2, 8, 3, 9, 4, 10, 5, 6]  # [(0, [0, 1, 0]), (1, [0, 2, 0]), (2, [0, 3, 0]), (3, [0, 4, 0]), (4, [0, 5, 6, 0])]
-    x2 = [1, 2, 7, 3, 4, 8, 5, 9, 6, 10]  # [(0, [0, 1, 2, 0]), (1, [0, 3, 4, 0]), (2, [0, 5, 0]), (3, [0, 6, 0])]
-    x3 = [1, 2, 7, 3, 4, 8, 5, 6, 9, 0]  # [(0, [0, 1, 2, 0]), (1, [0, 3, 4, 0]), (2, [0, 5, 6, 0])]
-    x4 = [1, 2, 3, 4, 7, 5, 6, 8, 0, 0]  # [(0, [0, 1, 2, 3, 4, 0]), (1, [0, 5, 6, 0])]
-    x5 = [1, 0, 2, 4, 7, 5, 6, 8, 0, 0] # None
-    x6 = [1, 2, 7, 3, 8, 4, 9, 5, 6, 10] # [(0, [0, 1, 2, 0]), (1, [0, 3, 0]), (2, [0, 4, 0]), (3, [0, 5, 6, 0])]
+    arguments = docopt(__doc__)
+    problem_instance = parse_problem(arguments['<problem_instance>'])
 
-    x7 = [3, 1, 2, 4, 0] # [(0, [0, 3, 1, 2, 0])]
+    x12 = [4, 5, 0, 3, 1, 2, 0, 6]  # [[0, 4, 5, 0], [0, 3, 1, 2, 0], [0, 6, 0]]
+    x13 = [3, 1, 2, 0, 6, 5, 0, 4]  # [[0, 3, 1, 2, 0], [0, 6, 5, 0], [0, 4, 0]]
+    xb = [3, 1, 2, 0, 6, 5, 4, 0]  # [[0, 3, 1, 2, 0], [0, 6, 5, 4, 0]] 153.5
+    x1 = [3, 1, 6, 0, 2, 5, 0, 4]
+    constraint_checker = VRPTWSequentialVectorConstraintChecker().set_params(problem_instance)
 
-    x8 = [3, 2, 4, 1, 5] # [(0, [0, 3, 2, 0]), (1, [0, 1, 0])]
+    print(solution_to_routes(x1), constraint_checker.get_constraints_value(x1))  # 0
 
-    x9 = [1, 4, 2, 5, 3] # [(0, [0, 1, 0]), (1, [0, 2, 0]), (2, [0, 3, 0])]
 
-    x10 = [5, 3, 1, 2, 4]
-    x11 = [4, 5, 3, 1, 2]
-
-    x12 = [4, 5, 7, 3, 1, 2, 8, 6] # [(0, [0, 4, 5, 0]), (1, [0, 3, 1, 2, 0]), (2, [0, 6, 0])] 152.7
-    x13 = [3, 1, 2, 8, 6, 5, 7, 4] # [(1, [0, 3, 1, 2, 0]), (0, [0, 6, 5, 0]), (2, [0, 4, 0])] 150.29999999999998
-    xb = [3, 1, 2, 7, 6, 5, 4, 8] # [(0, [0, 3, 1, 2, 0]), (1, [0, 6, 5, 4, 0])]
-
-    constraint_checker = VRPTWSequentialVectorConstraintChecker()
-    constraint_checker.v = 3
-    constraint_checker.n = 7
-
-    print(constraint_checker.convert_to_list_of_routes(xb))
