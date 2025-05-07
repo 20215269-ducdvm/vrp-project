@@ -2,7 +2,7 @@
 """draw
 
 Usage:
-    draw.py <problem_instance>
+    draw.py <_problem_instance>
 """
 import matplotlib.pyplot as plt
 import sys
@@ -10,15 +10,15 @@ import os
 import mplcursors
 # Add the parent directory to the system path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from docopt import docopt
+
 from problem_parser import parse_problem
 
 
 def draw(problem_instance):
     coordinates = problem_instance['coords']
-    n = problem_instance['location_number']  # number of locations (depot + customers)
-    v = problem_instance['vehicle_number']  # number of vehicles
-    name = problem_instance['name']  # name of the problem instance
+    n = problem_instance['_location_number']  # number of locations (depot + customers)
+    v = problem_instance['_vehicle_number']  # number of vehicles
+    name = problem_instance['type']  # type of the problem instance
     q = problem_instance['demand']  # demand of each customer
     s = problem_instance['service_duration']  # service time at each customer
     t = problem_instance['t']  # travel time between customers
@@ -72,8 +72,3 @@ def draw(problem_instance):
 
     plt.gcf().canvas.mpl_connect('button_press_event', on_click)
     plt.show()
-
-if __name__ == '__main__':
-    arguments = docopt(__doc__)
-    problem_instance = parse_problem(arguments['<problem_instance>'])
-    draw(problem_instance)

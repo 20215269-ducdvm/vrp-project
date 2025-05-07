@@ -1,9 +1,12 @@
 import logging
-from itertools import combinations
 import math
+from copy import copy
+from itertools import combinations
 from typing import List
 
-from kgls.datastructure import Node, CostEvaluator, VRPProblem, VRPSolution
+from datastructure import Node, CostEvaluator, VRPProblem, VRPSolution
+from datastructure.node import NodeWithTW
+from datastructure.route import RouteWithTW
 
 logger = logging.getLogger(__name__)
 
@@ -27,9 +30,9 @@ def compute_savings(
 
     for node_1, node_2 in combinations(customers, 2):
         saving = (
-            cost_evaluator.get_distance(node_1, depot)
-            + cost_evaluator.get_distance(node_2, depot)
-            - cost_evaluator.get_distance(node_1, node_2)
+                cost_evaluator.get_distance(node_1, depot)
+                + cost_evaluator.get_distance(node_2, depot)
+                - cost_evaluator.get_distance(node_1, node_2)
         )
 
         savings_list.append(
@@ -44,7 +47,6 @@ def compute_weighted_savings(
         depot: Node,
         cost_evaluator: CostEvaluator
 ) -> list[Saving]:
-
     savings_list = compute_savings(customers, depot, cost_evaluator)
 
     max_saving = sorted([_s.saving for _s in savings_list])[-1]
@@ -70,9 +72,7 @@ def clark_wright_parallel(
         vrp_instance: VRPProblem,
         cost_evaluator: CostEvaluator,
         demand_weighted: bool = False,
-        visualize_progess: bool = False
 ) -> VRPSolution:
-
     if demand_weighted:
         savings_list = compute_weighted_savings(vrp_instance.customers, vrp_instance.depot, cost_evaluator)
     else:
@@ -93,7 +93,8 @@ def clark_wright_parallel(
             continue
 
         elif node1 in not_planned and node2 in not_planned:
-            if node1.demand + node2.demand <= vrp_instance.capacity:
+            if node1.demand + node2.demand <= vrp_instance.capacity and (
+                    isinstance(node1, NodeWithTW) is False or RouteWithTW(node1, node2).can_update_time_windows()):
                 # create a new route with node1 and node2
                 solution.add_route(
                     [node1, node2]
@@ -106,11 +107,22 @@ def clark_wright_parallel(
 
         elif node1 in can_be_extended and node2 in not_planned:
             route1 = solution.route_of(node1)
+            can_update = True
             if route1.volume + node2.demand <= vrp_instance.capacity:
                 if solution.prev(node1).is_depot:  # add node2 before node1
-                    solution.insert_nodes_after([node2], solution.prev(node1), route1)
+                    if isinstance(route1, RouteWithTW):
+                        test_sol = copy(route1).add_customers_after([node2], solution.prev(node1))
+                        if not test_sol.can_update_time_windows():
+                            can_update = False
+                    if can_update is True:
+                        solution.insert_nodes_after([node2], solution.prev(node1), route1)
                 else:  # add node2 after node1
-                    solution.insert_nodes_after([node2], node1, route1)
+                    if isinstance(route1, RouteWithTW):
+                        test_sol = copy(route1).add_customers_after([node2], node1)
+                        if not test_sol.can_update_time_windows():
+                            can_update = False
+                    if can_update is True:
+                        solution.insert_nodes_after([node2], node1, route1)
 
                 can_be_extended.remove(node1)
                 not_planned.remove(node2)
@@ -119,11 +131,22 @@ def clark_wright_parallel(
 
         elif node2 in can_be_extended and node1 in not_planned:
             route2 = solution.route_of(node2)
+            can_update = True
             if route2.volume + node1.demand <= vrp_instance.capacity:
                 if solution.prev(node2).is_depot:  # add node1 before node2
-                    solution.insert_nodes_after([node1], solution.prev(node2), route2)
+                    if isinstance(route2, RouteWithTW):
+                        test_sol = copy(route2).add_customers_after([node1], solution.prev(node2))
+                        if not test_sol.can_update_time_windows():
+                            can_update = False
+                    if can_update is True:
+                        solution.insert_nodes_after([node1], solution.prev(node2), route2)
                 else:  # add node1 after node2
-                    solution.insert_nodes_after([node1], node2, route2)
+                    if isinstance(route2, RouteWithTW):
+                        test_sol = copy(route2).add_customers_after([node1], node2)
+                        if not test_sol.can_update_time_windows():
+                            can_update = False
+                    if can_update is True:
+                        solution.insert_nodes_after([node1], node2, route2)
 
                 can_be_extended.remove(node2)
                 not_planned.remove(node1)
@@ -131,6 +154,7 @@ def clark_wright_parallel(
                 can_be_extended.append(node1)
 
         elif node1 in can_be_extended and node2 in can_be_extended:
+            # TODO: merge two routes with time constraints
             # if both nodes are in different routes, merge the two routes
             # by moving all customers from route2 into route 1
             route1 = solution.route_of(node1)
@@ -174,19 +198,27 @@ def clark_wright_parallel(
 def clark_wright_route_reduction(
         vrp_instance: VRPProblem,
         cost_evaluator: CostEvaluator,
-        visualize_progess: bool = False
+        visualize_progress: bool = False
 ) -> VRPSolution:
     logger.info('Constructing VRP solution with Clarke-Wright heuristic')
     solution = clark_wright_parallel(vrp_instance, cost_evaluator)
 
-    minimal_num_routes = math.ceil(
-        sum(_cust.demand for _cust in vrp_instance.customers) / vrp_instance.capacity
-    )
+    initial_log: str = f'Solution had {len(solution.routes)} routes'
+    minimal_num_routes = 0
+    required_num_routes = 0
+    # used for cvrp instances
+    if vrp_instance.type == 'CVRP':
+        minimal_num_routes = math.ceil(
+            sum(_cust.demand for _cust in vrp_instance.customers) / vrp_instance.capacity
+        )
+        initial_log += f', compared to {minimal_num_routes} minimal routes. Trying to reduce the number of routes by considering capacity in the savings.'
+    else:
+        # used for vrptw instances
+        required_num_routes = vrp_instance.number_vehicles_required
+        initial_log += f', compared to {required_num_routes} required routes. Trying to reduce the number of routes by considering capacity and time windows in the savings.'
 
-    if len(solution.routes) > minimal_num_routes + 1:
-        logger.info(
-            f'Solution had {len(solution.routes)} routes, compared to {minimal_num_routes} minimal routes. '
-            f'Trying to reduce the number of routes by considering capacity in the savings.')
+    if len(solution.routes) > minimal_num_routes + 1 or len(solution.routes) > required_num_routes + 1:
+        logger.info(initial_log)
         solution = clark_wright_parallel(vrp_instance, cost_evaluator, True)
 
     return solution

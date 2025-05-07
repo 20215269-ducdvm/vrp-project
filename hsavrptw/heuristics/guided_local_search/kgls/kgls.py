@@ -3,9 +3,9 @@ import math
 import time
 from typing import Any, Optional
 
-from .datastructure import CostEvaluator, VRPProblem, VRPSolution
-from .read_write.problem_reader import read_vrp_instance
-from .read_write.solution_reader import read_vrp_solution
+from datastructure import CostEvaluator, VRPProblem, VRPSolution
+from read_write import read_vrp_instance
+from read_write.solution_reader import read_vrp_solution
 from .local_search import improve_solution, perturbate_solution
 from .solution_construction import clark_wright_route_reduction
 from .abortion_condition import BaseAbortionCondition, MaxRuntimeCondition, MaxIterationsCondition, \
@@ -25,7 +25,7 @@ DEFAULT_PARAMETERS = {
 class KGLS:
     _abortion_condition: BaseAbortionCondition
     _vrp_instance: VRPProblem
-    _cost_evaluator: CostEvaluator
+    cost_evaluator: CostEvaluator
     _best_solution: Optional[VRPSolution]
     _cur_solution: Optional[VRPSolution]
     _iteration: int
@@ -37,7 +37,7 @@ class KGLS:
     def __init__(self, path_to_instance_file: str, **kwargs):
         self.run_parameters = self._get_run_parameters(**kwargs)
         self._vrp_instance = read_vrp_instance(path_to_instance_file)
-        self._cost_evaluator = CostEvaluator(self._vrp_instance.nodes, self._vrp_instance.capacity, self.run_parameters)
+        self.cost_evaluator = CostEvaluator(self._vrp_instance.nodes, self._vrp_instance.capacity, self.run_parameters)
         self._best_solution_costs = math.inf
         self._cur_solution = None
         self._best_solution = None
@@ -85,7 +85,7 @@ class KGLS:
         self._abortion_condition = condition_classes[condition_name](param)
 
     def _update_run_stats(self, start_time):
-        current_costs = self._cost_evaluator.get_solution_costs(self._cur_solution)
+        current_costs = self.cost_evaluator.get_solution_costs(self._cur_solution)
 
         if self._vrp_instance.bks != float('inf'):
             solution_quality = 100 * (current_costs - self._vrp_instance.bks) / self._vrp_instance.bks
@@ -120,10 +120,8 @@ class KGLS:
 
         # construct initial solution
         if start_solution is None:
-            self._cur_solution = clark_wright_route_reduction(
-                vrp_instance=self._vrp_instance,
-                cost_evaluator=self._cost_evaluator
-            )
+            self._cur_solution = clark_wright_route_reduction(vrp_instance=self._vrp_instance,
+                                                              cost_evaluator=self.cost_evaluator)
         else:
             self._cur_solution = start_solution
 
@@ -134,7 +132,7 @@ class KGLS:
 
         improve_solution(
             solution=self._cur_solution,
-            cost_evaluator=self._cost_evaluator,
+            cost_evaluator=self.cost_evaluator,
             start_search_from_routes=self._cur_solution.routes,
             run_parameters=self.run_parameters,
         )
@@ -150,12 +148,12 @@ class KGLS:
 
             changed_routes = perturbate_solution(
                 solution=self._cur_solution,
-                cost_evaluator=self._cost_evaluator,
+                cost_evaluator=self.cost_evaluator,
                 run_parameters=self.run_parameters,
             )
             improve_solution(
                 solution=self._cur_solution,
-                cost_evaluator=self._cost_evaluator,
+                cost_evaluator=self.cost_evaluator,
                 start_search_from_routes=changed_routes,
                 run_parameters=self.run_parameters,
             )

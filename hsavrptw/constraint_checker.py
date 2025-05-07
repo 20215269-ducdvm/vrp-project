@@ -2,13 +2,12 @@
 """hsa
 
 Usage:
-    hsa.py <problem_instance>
+    hsa.py <_problem_instance>
 """
 from abc import ABC, abstractmethod
-from typing import Any, List
 
-from docopt import docopt
-from problem_parser import truncate_to_decimal, parse_problem
+from helpers.helpers import truncate_to_decimal
+from problem_parser import parse_problem
 
 
 class VRPTWAbstractConstraintChecker(ABC):
@@ -26,7 +25,7 @@ class VRPTWAbstractConstraintChecker(ABC):
         self.l = None  # end of time window for each customer
 
     def set_params(self, problem_instance):
-        # Initialize all common attributes from problem_instance
+        # Initialize all common attributes from _problem_instance
         self.capacity = problem_instance['capacity']  # total capacity
         self.n = problem_instance['location_number']  # number of locations (depot + customers)
         self.v = problem_instance['vehicle_number']  # number of vehicles
@@ -48,16 +47,19 @@ class VRPTWAbstractConstraintChecker(ABC):
         :return: True if the curr_solution satisfies all constraints, False if violated basic VRP constraints (customer is visited by more than one vehicle, vehicle does not start from depot, customer is not served), degree of violation if violated time window or capacity constraints
         """
         violated_degree = 0
+        print("checking vehicle number")
         if self.vehicle_number_exceed(x):
             return float('-inf')
 
         # Only one vehicle arriving at each customer and only one vehicle departing from each customer
         # This means that each customer is served by exactly one vehicle
+        print("checking is served by one vehicle")
         if not self._is_served_by_one_vehicle(x):
             # print("Customer is served by more than one vehicle")
             return float('-inf')
 
         # keep track of the degree of capacity violation
+        print("checking capacity")
         violated_degree += self._exceed_vehicle_capacity(x)
 
         # every vehicle starts from depot
@@ -106,7 +108,7 @@ class VRPTWAbstractConstraintChecker(ABC):
             for i in range(self.n):
                 total = total + self.y[i][k] * self.q[i]
             capacity_violated += max(0, total - self.capacity)
-        return capacity_violated
+        return -capacity_violated
 
     def every_vehicle_starts_from_depot(self, x) -> bool:
         for k in range(self.v):
@@ -155,14 +157,14 @@ class VRPTWAbstractConstraintChecker(ABC):
                 # customer cannot be served after end of time window
                 if self.a[next_location] > self.l[next_location]:
                     # print("Time window constraint violated at customer", next_location)
-                    violation_degree += self.l[next_location] - self.a[next_location]
+                    violation_degree += self.a[next_location] - self.l[next_location]
                 current_location = next_location
 
         if location_count - self.v + 1 != self.n:
             # print("Not all customers are served")
             return float('-inf')
 
-        return violation_degree
+        return -violation_degree
 
     @abstractmethod
     def find_next_location(self, x, current_location, k) -> int | None:
@@ -216,7 +218,7 @@ def _check_for_duplicates(x):
     return len(x) == len(set(x))
 
 
-def solution_to_routes(solution, depot=0):
+def solution_to_routes(solution, depot=0) -> list[list[int]]:
     """
     Convert a flat curr_solution list to a list of routes.
 
@@ -303,7 +305,7 @@ class VRPTWSequentialVectorConstraintChecker(VRPTWAbstractConstraintChecker):
 
 if __name__ == '__main__':
     arguments = docopt(__doc__)
-    problem_instance = parse_problem(arguments['<problem_instance>'])
+    problem_instance = parse_problem(arguments['<_problem_instance>'])
 
     x12 = [4, 5, 0, 3, 1, 2, 0, 6]  # [[0, 4, 5, 0], [0, 3, 1, 2, 0], [0, 6, 0]]
     x13 = [3, 1, 2, 0, 6, 5, 0, 4]  # [[0, 3, 1, 2, 0], [0, 6, 5, 0], [0, 4, 0]]

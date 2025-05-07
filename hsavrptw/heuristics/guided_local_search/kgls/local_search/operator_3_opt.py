@@ -1,6 +1,6 @@
 import logging
 
-from kgls.datastructure import Node, Route, VRPSolution, CostEvaluator
+from datastructure import Node, Route, VRPSolution, CostEvaluator
 from .local_search_move import LocalSearchMove
 
 logger = logging.getLogger(__name__)
@@ -76,7 +76,7 @@ def search_3_opt_moves_from(
                         segment_list = [segment_end]
                         route_2_new_volume = to_route.volume + segment_end.demand
 
-                        while not segment_end.is_depot and cost_evaluator.is_feasible(route_2_new_volume):
+                        while not segment_end.is_depot and cost_evaluator.is_feasible_capacity(route_2_new_volume):
                             #segment_disconnect_2 = segment_end.get_neighbour(segment_direction)
                             segment_disconnect_2 = solution.neighbour(segment_end, segment_direction)
 

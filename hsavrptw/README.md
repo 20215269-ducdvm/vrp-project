@@ -1,4 +1,4 @@
-# Harmony Search Algorithm for Vehicle Routing Problem with Time Windows
+# Harmony Search Algorithm for Vehicle Routing Problem
 
 A slight modification to tweinyan's implementation of hsa.
 
@@ -15,41 +15,17 @@ and pyHarmonySearch as Harmony Search Implementation.
 Check out https://github.com/gfairchild/pyHarmonySearch/
 
 This repository contains:
-- VRPTWObjectiveFunction.py - main script
-- problems/ - directory with problems
-- pyharmonysearch/ - directory with pyHarmonySearch library
-- run.sh - script for running the main script with the full dataset
-- run_test.sh - script for running the main script with the mini dataset
+- instance/ - directory with problems
+- pyharmonysearch/ - directory with harmony search implementation
 
 ## How to Run This Project
 
 ### Prerequisites
 
-- Python 3.x
+- Python 3.12
 
 ### Running the Main Script
-
-To run this project, there are two scripts available: one for testing with the mini dataset and the other for testing with the full dataset.
-
-Note that to run the scripts, you need to have WSL installed.
-
-To run the script for testing with the mini dataset, execute the following command:
-
-```bash
-./run_test.sh
+```
+python main.py
 ```
 
-Or you can paste the following command in the terminal if you don't feel like installing at the moment
-```sh
-python vrptw_objective_function.py problems/minimal.txt --hms=20 --hmcr=0.7 --parmax=0.9 --parmin=0.3 --ni=1000
-```
-
-To run the script for testing with the full dataset, execute the following command:
-
-```bash
-./run.sh
-```
-Or you can paste the following command in the terminal if you don't feel like installing at the moment
-```sh
-python vrptw_objective_function.py problems/C101.txt --hms=20 --hmcr=0.7 --parmax=0.9 --parmin=0.3 --ni=1000
-```

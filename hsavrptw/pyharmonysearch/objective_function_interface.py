@@ -9,7 +9,7 @@
       disclaimer.
     * Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the
       following disclaimer in the documentation and/or other materials provided with the distribution.
-    * Neither the name of Triad National Security, LLC nor the names of its contributors may be used to endorse or
+    * Neither the type of Triad National Security, LLC nor the names of its contributors may be used to endorse or
       promote products derived from this software without specific prior written permission.
 
     THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
@@ -182,7 +182,7 @@ class ObjectiveFunctionInterface(object):
 
     def get_hmcr(self):
         """
-            Return the harmony memory considering rate. This represents the proportion of memory consideration calls vs. random selection calls.
+            Return the solution memory considering rate. This represents the proportion of memory consideration calls vs. random selection calls.
         """
         raise NotImplementedError(inspect.stack()[0][3])
 
@@ -194,7 +194,7 @@ class ObjectiveFunctionInterface(object):
 
     def get_hms(self):
         """
-            Return the harmony memory size. This represents the size of the vector that stores previously best harmonies.
+            Return the solution memory size. This represents the size of the vector that stores previously best harmonies.
         """
         raise NotImplementedError(inspect.stack()[0][3])
 
@@ -216,4 +216,12 @@ class ObjectiveFunctionInterface(object):
         """
             Return True if this is a maximization problem, False if minimization problem.
         """
+        raise NotImplementedError(inspect.stack()[0][3])
+
+    def get_bra(self):
+        """Bandwidth reduction rate"""
+        raise NotImplementedError(inspect.stack()[0][3])
+
+    def get_iar(self):
+        """Rate of improvement adjustment"""
         raise NotImplementedError(inspect.stack()[0][3])

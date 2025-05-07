@@ -1,114 +1,9 @@
-import copy
+import logging
 import random
 from abc import abstractmethod, ABC
 
-# from pyharmonysearch.strategies import InitializationVanilla, PitchAdjustmentVanilla, UpdateMemoryVanilla
+logger = logging.getLogger(__name__)
 
-# TODO: Make code pretty later
-# class HarmonySearchBuilder:
-#     def __init__(self, objective_function):
-#         self._objective_function = objective_function
-#         self._initialization_strategy = InitializationVanilla()
-#         self._pitch_adjustment_strategy = PitchAdjustmentVanilla()
-#         self._update_memory_strategy = UpdateMemoryVanilla()
-#
-#     def set_initialization_strategy(self, initialization_strategy):
-#         self._initialization_strategy = initialization_strategy
-#         return self
-#
-#     def set_pitch_adjustment_strategy(self, pitch_adjustment_strategy):
-#         self._pitch_adjustment_strategy = pitch_adjustment_strategy
-#         return self
-#
-#     def set_update_memory_strategy(self, update_memory_strategy):
-#         self._update_memory_strategy = update_memory_strategy
-#         return self
-#
-#     def build(self):
-#         return HarmonySearchTemplate(
-#             self._objective_function,
-#             self._initialization_strategy,
-#             self._pitch_adjustment_strategy,
-#             self._update_memory_strategy
-#         )
-#
-# class HarmonySearch:
-#     def __init__(self, objective_function, initialization_strategy, pitch_adjustment_strategy, update_memory_strategy):
-#         self._harmony_memory = None
-#         self._obj_fun = objective_function
-#         self._initialization_strategy = initialization_strategy
-#         self._pitch_adjustment_strategy = pitch_adjustment_strategy
-#         self._update_memory_strategy = update_memory_strategy
-#
-#     def run(self, initial_harmonies=None):
-#         """
-#             This is the main HS loop. It initializes the harmony memory and then continually generates new harmonies
-#             until the stopping criterion (max_imp iterations) is reached.
-#         """
-#         # set optional random seed
-#         if self._obj_fun.use_random_seed():
-#             random.seed(self._obj_fun.get_random_seed())
-#
-#         # harmony_memory stores the best hms harmonies
-#         self._harmony_memory = list()
-#
-#         # harmony_history stores all hms harmonies every nth improvisations (i.e., one 'generation')
-#         self._harmony_history = list()
-#
-#         # fill harmony_memory using random parameter values by default, but with initial_harmonies if provided
-#         self._initialize(initial_harmonies)
-#
-#         # create max_imp improvisations
-#         generation = 0
-#         num_imp = 0
-#         while (num_imp < self._obj_fun.get_max_imp()):
-#             # generate new harmony
-#             harmony = list()
-#             for i in range(0, self._obj_fun.get_num_parameters()):
-#                 if random.random() < self._obj_fun.get_hmcr():
-#                     self._memory_consideration(harmony, i)
-#                     if random.random() < self._obj_fun.get_par():
-#                         self._pitch_adjustment(harmony, i)
-#                 else:
-#                     self._random_selection(harmony, i)
-#             fitness = self._obj_fun.get_fitness(harmony)
-#             self._update_harmony_memory(harmony, fitness)
-#             num_imp += 1
-#
-#             # save harmonies every nth improvisations (i.e., one 'generation')
-#             if num_imp % self._obj_fun.get_hms() == 0:
-#                 generation += 1
-#                 harmony_list = {'gen': generation, 'harmonies': copy.deepcopy(self._harmony_memory)}
-#                 self._harmony_history.append(harmony_list)
-#
-#         # return best harmony
-#         best_harmony = None
-#         best_fitness = float('-inf') if self._obj_fun.maximize() else float('+inf')
-#         for harmony, fitness in self._harmony_memory:
-#             if (self._obj_fun.maximize() and fitness > best_fitness) or (
-#                     not self._obj_fun.maximize() and fitness < best_fitness):
-#                 best_harmony = harmony
-#                 best_fitness = fitness
-#         return best_harmony, best_fitness, self._harmony_memory, self._harmony_history
-#
-#     def _initialize(self, initial_harmonies=None):
-#         self._initialization_strategy.initialize(initial_harmonies)
-#
-#     def _random_selection(self, harmony, i):
-#         if self._obj_fun.is_discrete(i):
-#             harmony.append(self._obj_fun.get_value(i, random.randint(0, self._obj_fun.get_num_discrete_values(i) - 1)))
-#         else:
-#             harmony.append(random.uniform(self._obj_fun.get_lower_bound(i), self._obj_fun.get_upper_bound(i)))
-#
-#     def _memory_consideration(self, harmony, i):
-#         memory_index = random.randint(0, self._obj_fun.get_hms() - 1)
-#         harmony.append(self._harmony_memory[memory_index][0][i])
-#
-#     def _pitch_adjustment(self, harmony, i):
-#         self._pitch_adjustment_strategy.pitch_adjustment(harmony, i)
-#
-#     def _update_harmony_memory(self, considered_harmony, considered_fitness):
-#         self._update_memory_strategy.update_harmony_memory(considered_harmony, considered_fitness)
 
 class HarmonySearchTemplate(ABC):
     def __init__(self, objective_function):
@@ -123,10 +18,10 @@ class HarmonySearchTemplate(ABC):
         pass
 
     @abstractmethod
-    def _initialize(self, initial_harmonies=None):
+    def initialize(self, initial_harmonies=None):
         pass
 
-    def _random_selection(self, harmony, i):
+    def random_selection(self, harmony, i):
         """
             Choose a random note from the possible values.
         """
@@ -135,7 +30,7 @@ class HarmonySearchTemplate(ABC):
         else:
             harmony.append(random.uniform(self._obj_fun.get_lower_bound(i), self._obj_fun.get_upper_bound(i)))
 
-    def _memory_consideration(self, harmony, i):
+    def memory_consideration(self, harmony, i):
         """
             Randomly choose a note previously played.
         """
@@ -143,9 +38,59 @@ class HarmonySearchTemplate(ABC):
         harmony.append(self._harmony_memory[memory_index][0][i])
 
     @abstractmethod
-    def _pitch_adjustment(self, harmony, i):
-        pass
+    def pitch_adjustment(self, harmony, i):
+        """
+            If variable, randomly adjust the pitch up or down by some amount. This is the only place in the algorithm where there
+            is an explicit difference between continuous and discrete variables.
+
+            The probability of adjusting the pitch either up or down is fixed at 0.5. The maximum pitch adjustment proportion (mpap)
+            and maximum pitch adjustment index (mpai) determine the maximum amount the pitch may change for continuous and discrete
+            variables, respectively.
+
+            For example, suppose that it is decided via coin flip that the pitch will be adjusted down. Also suppose that mpap is set to 0.25.
+            This means that the maximum value the pitch can be dropped will be 25% of the difference between the lower bound and the current
+            pitch. mpai functions similarly, only it relies on indices of the possible values instead.
+        """
+        if self._obj_fun.is_variable(i):
+            if self._obj_fun.is_discrete(i):
+                current_index = self._obj_fun.get_index(i, harmony[i])
+                # discrete variable
+                if random.random() < 0.5:
+                    # adjust pitch down
+                    harmony[i] = self._obj_fun.get_value(i, current_index - random.randint(0,
+                                                                                           min(self._obj_fun.get_mpai(),
+                                                                                               current_index)))
+                else:
+                    # adjust pitch up
+                    harmony[i] = self._obj_fun.get_value(i, current_index + random.randint(0,
+                                                                                           min(self._obj_fun.get_mpai(),
+                                                                                               self._obj_fun.get_num_discrete_values(
+                                                                                                   i) - current_index - 1)))
+            else:
+                # continuous variable
+                if random.random() < 0.5:
+                    # adjust pitch down
+                    harmony[i] -= (harmony[i] - self._obj_fun.get_lower_bound(
+                        i)) * random.random() * self._obj_fun.get_mpap()
+                else:
+                    # adjust pitch up
+                    harmony[i] += (self._obj_fun.get_upper_bound(i) - harmony[
+                        i]) * random.random() * self._obj_fun.get_mpap()
 
     @abstractmethod
-    def _update_harmony_memory(self, considered_harmony, considered_fitness):
-        pass
+    def update_harmony_memory(self, considered_harmony, considered_fitness):
+        """
+                    Update the solution memory if necessary with the given solution. If the given solution is better than the worst
+                    solution in memory, replace it. This function doesn't allow duplicate harmonies in memory.
+                """
+        if (considered_harmony, considered_fitness) not in self._harmony_memory:
+            worst_index = None
+            worst_fitness = float('+inf') if self._obj_fun.maximize() else float('-inf')
+            for i, (harmony, fitness) in enumerate(self._harmony_memory):
+                if (self._obj_fun.maximize() and fitness < worst_fitness) or (
+                        not self._obj_fun.maximize() and fitness > worst_fitness):
+                    worst_index = i
+                    worst_fitness = fitness
+            if (self._obj_fun.maximize() and considered_fitness > worst_fitness) or (
+                    not self._obj_fun.maximize() and considered_fitness < worst_fitness):
+                self._harmony_memory[worst_index] = (considered_harmony, considered_fitness)

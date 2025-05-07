@@ -2,7 +2,7 @@ from collections import defaultdict, deque
 import logging
 import math
 
-from kgls.datastructure import Node, Route, VRPSolution, CostEvaluator
+from datastructure import Node, Route, VRPSolution, CostEvaluator
 from .local_search_move import LocalSearchMove
 
 logger = logging.getLogger(__name__)
@@ -91,7 +91,7 @@ class NOptMove(LocalSearchMove):
 
         new_route.append(self.route.depot)
 
-        solution.rearrage_route(self.route, new_route)
+        solution.rearrange_route(self.route, new_route)
 
 
 class LKMoveSearcher:

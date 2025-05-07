@@ -8,7 +8,7 @@ from .operator_relocation_chain import search_relocation_chains
 from .operator_linkernighan import run_lin_kernighan_heuristic
 from .operator_3_opt import search_3_opt_moves
 from .operator_cross_exchange import search_cross_exchanges
-from kgls.datastructure import Node, Route, VRPSolution, CostEvaluator
+from datastructure import Node, Route, VRPSolution, CostEvaluator
 
 
 logger = logging.getLogger(__name__)

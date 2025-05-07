@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from kgls.datastructure import Route, VRPSolution
+from datastructure import Route, VRPSolution
 
 
 class LocalSearchMove(ABC):

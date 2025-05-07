@@ -1,7 +1,7 @@
 from collections import defaultdict
 import logging
 
-from kgls.datastructure import Node, Route, Edge, VRPSolution, CostEvaluator
+from datastructure import Node, Route, Edge, VRPSolution, CostEvaluator
 from .local_search_move import LocalSearchMove
 
 # TODO continue valid chains to find even better improvements
@@ -219,7 +219,7 @@ def search_relocation_chains_from(
 
         # Check feasibility of the target route after insertion
         new_route_volume = destination_route.volume + extended_chain.demand_changes[destination_route]
-        if cost_evaluator.is_feasible(new_route_volume):
+        if cost_evaluator.is_feasible_capacity(new_route_volume):
             valid_relocations_chain.append(
                 extended_chain
             )
@@ -228,7 +228,7 @@ def search_relocation_chains_from(
                 # try to restore feasibility by a follow-up relocation
                 # this can be achieved by ejecting a node in the destination route
                 for candidate_node in destination_route.customers:
-                    if cost_evaluator.is_feasible(new_route_volume - candidate_node.demand):
+                    if cost_evaluator.is_feasible_capacity(new_route_volume - candidate_node.demand):
                         if candidate_node not in extended_chain.forbidden_nodes:
                             search_relocation_chains_from(
                                 valid_relocations_chain=valid_relocations_chain,
