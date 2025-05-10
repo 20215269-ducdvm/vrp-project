@@ -209,7 +209,7 @@ class HarmonySearchVRP(HarmonySearchTemplate):
             # generate new solution
             harmony = list()
 
-            for i in range(0, self._obj_fun.get_num_parameters()):
+            for i in range(self._obj_fun.get_num_parameters()):
                 num_discrete_values = self._obj_fun.get_num_discrete_values(i) - 1
                 if random.random() < self._obj_fun.get_hmcr():
                     self.memory_consideration(harmony, i)
@@ -276,10 +276,10 @@ class HarmonySearchVRP(HarmonySearchTemplate):
         else:
             # MAIN PART
             initial_harmonies = list()
-            for i in range(0, self._obj_fun.get_hms()):
+            for i in range(self._obj_fun.get_hms()):
                 while True:
                     harmony = list()
-                    for j in range(0, self._obj_fun.get_num_parameters()):
+                    for j in range(self._obj_fun.get_num_parameters()):
                         self.random_selection(harmony, j)
                     fitness = self._obj_fun.get_fitness(harmony)
                     if fitness > 0:

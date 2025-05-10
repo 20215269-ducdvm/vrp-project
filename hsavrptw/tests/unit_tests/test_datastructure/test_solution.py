@@ -6,7 +6,7 @@ from read_write import read_vrp_instance
 
 def test_solution():
     from datastructure.vrp_objective_function import VRPObjectiveFunction, vrp_solution_to_vector
-    from heuristics.guided_local_search.kgls import KGLS
+    from heuristics.kgls import KGLS
     root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
     instance_path = os.path.join(root_dir, 'instances', 'X', 'X-n101-k25.vrp')

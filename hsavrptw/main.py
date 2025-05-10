@@ -1,9 +1,8 @@
 import logging
 from multiprocessing import cpu_count, freeze_support
 
-from constraint_checker import solution_to_routes
 from datastructure.vrp_objective_function import VRPObjectiveFunction, vrp_solution_to_vector
-from heuristics.guided_local_search.kgls import KGLS
+from heuristics.kgls import KGLS
 from pyharmonysearch.harmony_search import harmony_search, harmony_search_serial
 from pyharmonysearch.hybrid_heuristic_hs import HybridHeuristicHSA
 from pyharmonysearch.hybrid_hs_kgls import HybridHSKGLS
@@ -18,7 +17,7 @@ def run_hybrid_heuristic_hs(arguments):
     obj_fun = VRPObjectiveFunction(arguments, problem_instance)
     algorithm = HybridHeuristicHSA(obj_fun)
     num_processes = cpu_count() - 1  # use number of logical CPUs - 1 so that I have one available for use
-    num_iterations = 100
+    num_iterations = 50
 
     results = (harmony_search(obj_fun, num_processes, num_iterations, algorithm))
     # results = (harmony_search_serial(obj_fun, num_iterations, algorithm))
@@ -75,7 +74,6 @@ def run_hs_kgls(arguments, logger):
     print("Time elapsed:", results.elapsed_time)
     print("Best solution:", best_harmony)
     print("Best fitness:", results.best_fitness)
-    print("Route:", solution_to_routes(best_harmony))
 
 
 def main():
@@ -85,7 +83,7 @@ def main():
     )
     logger = logging.getLogger(__name__)
 
-    dataset = "Solomon/R101.txt"
+    dataset = "Solomon/C101.txt"
     instance_path = f"instances/{dataset}"
 
     arguments = {

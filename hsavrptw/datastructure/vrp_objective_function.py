@@ -102,117 +102,6 @@ def vector_to_vrp_solution(vector, problem: VRPProblem) -> VRPSolution:
 
     return solution
 
-
-# class VRPTWObjectiveFunctionSequentialVector(ObjectiveFunctionInterface):
-#     def __init__(self, arguments, problem_instance):
-#         self._problem_instance = problem_instance
-#         self._location_number = problem_instance['location_number']
-#         self._vehicle_number = problem_instance['vehicle_number']
-#         self._discrete_values = []
-#         self._variable = []
-#         self._number_of_parameters = self._location_number + self._vehicle_number - 2
-#         for i in range(self._number_of_parameters):
-#             self._discrete_values.append([i for i in range(0, self._location_number - 1)])
-#             self._variable.append(True)
-#
-#         # define all input parameters
-#         self._maximize = False  # minimize
-#         self._max_imp = int(arguments['--ni'])  # maximum number of improvisations
-#         self._hms = int(arguments['--hms'])  # solution memory size
-#         self._hmcr = float(arguments['--hmcr'])  # solution memory considering rate
-#         self._mpai = self._location_number // 10  # maximum pitch adjustment index
-#         self._par = float(arguments['--par'])  # pitch adjusting rate
-#
-#     def get_fitness(self, vector):
-#         """
-#         Calculate the fitness of the curr_solution vector
-#         :param vector: the curr_solution vector
-#         :return: fitness value if constraints are satisfied, otherwise return the degree of violation
-#         """
-#         constraints_value = self.get_constraints_value(vector)
-#         return self._get_total_distance(vector) if constraints_value == 0 else constraints_value
-#
-#     def _get_total_distance(self, vector, depot=0):
-#         """
-#         Function to calculate total distance for this type of vector
-#         """
-#         total_distance = 0
-#         current_position = depot
-#
-#         for node in vector:
-#             # calculate distance from current position to the next node
-#             total_distance += self._problem_instance['t'][current_position][node]
-#
-#             # update current position
-#             current_position = node
-#
-#             # if current note is depot, reset current position to depot
-#             # to start a new route
-#             if current_position == depot:
-#                 current_position = depot
-#
-#         if current_position != depot:
-#             total_distance += self._problem_instance['t'][current_position][depot]
-#
-#         # ensure the final result is also properly truncated to exactly one decimal place
-#         return truncate_to_decimal(total_distance)
-#
-#     def get_value(self, i, j=None):
-#         return random.randrange(1, self._number_of_parameters) if j is None else self._discrete_values[i][j]
-#
-#     def get_index(self, i, v):
-#         return self._discrete_values[i].index(v)
-#
-#     def get_num_discrete_values(self, i):
-#         return len(self._discrete_values[i])
-#
-#     def get_lower_bound(self, i):
-#         return 0
-#
-#     def get_upper_bound(self, i):
-#         return self._location_number - 1
-#
-#     def is_variable(self, i):
-#         return self._variable[i]
-#
-#     def is_discrete(self, i):
-#         return True
-#
-#     def get_num_parameters(self):
-#         return self._number_of_parameters
-#
-#     def use_random_seed(self):
-#         pass
-#
-#     def get_random_seed(self):
-#         pass
-#
-#     def get_max_imp(self):
-#         return self._max_imp
-#
-#     def get_hmcr(self):
-#         return self._hmcr
-#
-#     def get_par(self):
-#         return self._par
-#
-#     def get_hms(self):
-#         return self._hms
-#
-#     def get_mpai(self):
-#         return self._mpai
-#
-#     def get_mpap(self):
-#         pass
-#
-#     def maximize(self):
-#         return self._maximize
-#
-#     def get_constraints_value(self, vector):
-#         return VRPTWSequentialVectorConstraintChecker().set_params(self._problem_instance).get_constraints_value(vector)
-
-
-
 class VRPObjectiveFunction(ObjectiveFunctionInterface):
     def __init__(self, arguments, problem_instance: VRPProblem, number_of_parameters: int=None, initial_solution: list=None):
         self._problem_instance = problem_instance
@@ -297,12 +186,12 @@ class VRPObjectiveFunction(ObjectiveFunctionInterface):
             prev_node = self._problem_instance.nodes[prev_node_idx]
             curr_node = self._problem_instance.nodes[node]
 
-            curr_node.arrival_time = truncate_to_decimal(multiply_and_floor(prev_node.arrival_time) + multiply_and_floor(prev_node.waiting_time + prev_node.service_time) + multiply_and_floor(compute_euclidean_distance(
-                prev_node, curr_node)))
-            curr_node.waiting_time = truncate_to_decimal(multiply_and_floor(max(0, curr_node.time_window[0] - curr_node.arrival_time)))
+            curr_node.arrival_time = prev_node.arrival_time + prev_node.waiting_time + prev_node.service_time + compute_euclidean_distance(
+                prev_node, curr_node)
+            curr_node.waiting_time = max(0, multiply_and_floor(curr_node.time_window[0]) - curr_node.arrival_time)
 
-            if curr_node.arrival_time > curr_node.time_window[1]:
-                time_window_violation += (curr_node.arrival_time - curr_node.time_window[1])
+            if curr_node.arrival_time > multiply_and_floor(curr_node.time_window[1]):
+                time_window_violation += (curr_node.arrival_time - multiply_and_floor(curr_node.time_window[1]))
 
             if node == 0:
                 # Reset arrival time and waiting time for depot
@@ -310,7 +199,7 @@ class VRPObjectiveFunction(ObjectiveFunctionInterface):
                 curr_node.waiting_time = 0
 
             prev_node_idx = node
-        return time_window_violation
+        return truncate_to_decimal(time_window_violation)
 
     def _get_total_distance(self, vector):
         """
@@ -328,9 +217,6 @@ class VRPObjectiveFunction(ObjectiveFunctionInterface):
 
             distance = compute_euclidean_distance(node1, node2)
 
-            if self._problem_instance.type == 'VRPTW':
-                distance = multiply_and_floor(distance)
-
             total_distance += distance
 
             # update current position
@@ -346,16 +232,9 @@ class VRPObjectiveFunction(ObjectiveFunctionInterface):
             depot = nodes[0]
             distance = compute_euclidean_distance(final_node, depot)
 
-            if self._problem_instance.type == 'VRPTW':
-                distance = multiply_and_floor(distance)
-
             total_distance += distance
 
-        if self._problem_instance.type == 'VRPTW':
-            # ensure the final result is also properly truncated to exactly one decimal place
-            total_distance = truncate_to_decimal(total_distance)
-
-        return total_distance
+        return truncate_to_decimal(total_distance)
 
     def get_value(self, i, j=None):
         return random.randrange(1, self._number_of_parameters) if j is None else self._discrete_values[i][j]

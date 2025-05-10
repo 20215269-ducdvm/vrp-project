@@ -10,7 +10,6 @@ import copy
 import random
 import logging
 
-from constraint_checker import solution_to_routes
 from datastructure import VRPProblem, CostEvaluator
 from datastructure.route import compute_euclidean_distance
 from helpers.helpers import remove_duplicates, create_route_with_tw
@@ -122,8 +121,8 @@ class HybridHeuristicHSA(HarmonySearchVRP):
         # fill harmony_memory using random parameter values by default, but with initial_harmonies if provided
         self.initialize(initial_harmonies)
 
-        logger.info(f"Harmony Search algorithm initialized with random harmonies")
-        logger.info(f"Initial harmony memory: {self._harmony_memory}")
+        # logger.info(f"Harmony Search algorithm initialized with random harmonies")
+        # logger.info(f"Initial harmony memory: {self._harmony_memory}")
         # create max_imp improvisations
         generation = 0
         num_imp = 0
@@ -132,7 +131,7 @@ class HybridHeuristicHSA(HarmonySearchVRP):
             # generate new solution
             harmony = list()
 
-            for i in range(0, self._obj_fun.get_num_parameters()):
+            for i in range(self._obj_fun.get_num_parameters()):
                 if random.random() < self._obj_fun.get_hmcr():
                     self.memory_consideration(harmony, i)
                     if random.random() < self._obj_fun.get_par():
@@ -202,10 +201,10 @@ class HybridHeuristicHSA(HarmonySearchVRP):
         else:
             # MAIN PART
             initial_harmonies = list()
-            for i in range(0, self._obj_fun.get_hms()):
+            for i in range(self._obj_fun.get_hms()):
                 while True:
                     harmony = list()
-                    for j in range(0, self._obj_fun.get_num_parameters()):
+                    for j in range(self._obj_fun.get_num_parameters()):
                         self.random_selection(harmony, j)
                     harmony = remove_duplicates(harmony, upper_bound=self._obj_fun.get_num_discrete_values(0) - 1, max_zeros_allowed=self.max_zeros_allowed)
                     fitness = self._obj_fun.get_fitness(harmony)
@@ -456,7 +455,7 @@ class HybridHeuristicHSA(HarmonySearchVRP):
 
         # Step 1: Correlation Deletion Operator
         # Determine number of customers to delete (10-20% of total)
-        total_customers = self._obj_fun.location_number() - 1 # Exclude depots
+        total_customers = self._obj_fun.location_number - 1 # Exclude depots
         if total_customers == 0:
             return harmony  # Return original solution if no customers
 

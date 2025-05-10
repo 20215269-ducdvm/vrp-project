@@ -1,5 +1,6 @@
 from datastructure import VRPProblem, Node
 from datastructure.vrp_objective_function import VRPObjectiveFunction, has_duplicates
+from helpers.helpers import truncate_to_decimal, multiply_and_floor
 from tests.unit_tests.test_local_search_operators.test_cross_exchange import build_toy_problem_vrptw
 
 
@@ -45,44 +46,49 @@ class TestVRPObjectiveFunction:
         obj_func = VRPObjectiveFunction(arguments, problem_instance, number_of_parameters=6)
         assert obj_func._number_of_parameters == 6
 
-def test_vrp_obj_func_kgls():
-    arguments = {
-        '--hms': 20,
-        '--hmcr': 0.9,
-        '--par': 0.5,
-        '--ni': 1000,
-    }
+    def test_vrp_obj_func_kgls(self):
+        arguments = {
+            '--hms': 20,
+            '--hmcr': 0.9,
+            '--par': 0.5,
+            '--ni': 1000,
+        }
 
-    problem_instance, cost_evaluator = build_toy_problem_vrptw()
+        problem_instance, cost_evaluator = build_toy_problem_vrptw()
 
-    obj_func = VRPObjectiveFunction(arguments, problem_instance)
+        obj_func = VRPObjectiveFunction(arguments, problem_instance)
 
-    assert obj_func._location_number == 7
-    assert obj_func._vehicle_number == 3
+        assert obj_func._location_number == 7
+        assert obj_func._vehicle_number == 3
 
-    route = [3, 1, 2, 0, 6, 5, 4, 0]
-    assert obj_func.get_fitness(route) == 153.5
+        route = [3, 1, 2, 0, 6, 5, 4, 0]
+        assert obj_func.get_fitness(route) == 153.5
 
-    # try different variants of the route
-    route = [0, 3, 1, 2, 0, 6, 5, 4]
-    assert obj_func.get_fitness(route) == 153.5
+        # try different variants of the route
+        route = [0, 3, 1, 2, 0, 6, 5, 4]
+        assert obj_func.get_fitness(route) == 153.5
 
-    route = [3, 1, 2, 0, 6, 5, 4, 0]
-    assert obj_func.get_fitness(route) == 153.5
+        route = [3, 1, 2, 0, 6, 5, 4, 0]
+        assert obj_func.get_fitness(route) == 153.5
 
-    route = [3, 2, 0, 4, 4, 4, 4, 4]
-    assert obj_func.get_fitness(route) == float('-inf')
+        route = [3, 2, 0, 4, 4, 4, 4, 4]
+        assert obj_func.get_fitness(route) == float('-inf')
 
-    problem_instance = build_toy_cvrp_problem()
+        problem_instance = build_toy_cvrp_problem()
 
-    obj_func = VRPObjectiveFunction(arguments, problem_instance, number_of_parameters=6)
+        obj_func = VRPObjectiveFunction(arguments, problem_instance, number_of_parameters=6)
 
-    assert obj_func._location_number == 6
-    assert obj_func._number_of_parameters == 6
+        assert obj_func._location_number == 6
+        assert obj_func._number_of_parameters == 6
 
-    route = [3, 2, 5, 0, 1, 4]
-    assert obj_func.get_fitness(route) == 265
+        # Rounding error. Acceptable
+        route = [3, 2, 5, 0, 1, 4]
+        assert obj_func.get_fitness(route) == 265
 
-    route = [1, 4, 0, 3, 2, 5]
-    assert obj_func.get_fitness(route) == 265
+        route = [1, 4, 0, 3, 2, 5]
+        assert obj_func.get_fitness(route) == 265
 
+def test_st():
+    distance = 1350.0
+    assert(multiply_and_floor(distance) == 13500)
+    assert(truncate_to_decimal(distance) == 135.0)

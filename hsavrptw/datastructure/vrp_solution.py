@@ -1,10 +1,11 @@
+import sys
 from collections import defaultdict
 
 from matplotlib import pyplot as plt
 from matplotlib.gridspec import GridSpec
 
 from .node import Node
-from .route import Route, RouteWithTW
+from .route import Route
 from .vrp_problem import VRPProblem
 #import matplotlib.pyplot as plt
 #from matplotlib.gridspec import GridSpec
@@ -18,15 +19,15 @@ class VRPSolution:
         self.solution_stats: defaultdict[str, float] = defaultdict(float)
         self._plot_progress = False
 
-        self._prev: dict[int, int] = {
+        self._prev: dict[int, Node] = {
             node.node_id: None
             for node in self.problem.customers
         }
-        self._next: dict[int, int] = {
+        self._next: dict[int, Node] = {
             node.node_id: None
             for node in self.problem.customers
         }
-        self._route: dict[int, int] = {
+        self._route: dict[int, Route] = {
             node.node_id: None
             for node in self.problem.customers
         }
@@ -72,12 +73,12 @@ class VRPSolution:
         # check problem-specific constraints
         for route in self.routes:
             assert route.volume <= self.problem.capacity, \
-                f"Capacity violation at route {route.route_index}: {route}"
+                f"Capacity violation at route {route._route_index}: {route}"
             # check time windows
             for node in route.customers:
                 assert self._route[node.node_id] == route
 
-            if isinstance(route, RouteWithTW):
+            if not hasattr(sys, "VRP_NO_TIME_WINDOWS"):
                 for node in route.customers:
                     assert node.arrival_time <= node.time_window[1], \
                         f"Time window violation for node {node.node_id}"

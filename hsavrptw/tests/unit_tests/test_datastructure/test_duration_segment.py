@@ -33,32 +33,32 @@ class TestDurationSegment(unittest.TestCase):
     def test_merge_basic(self):
         # Create two simple segments
         first = DurationSegment(
-            _duration=Duration(100),
+            _duration=Duration(0),
             _time_warp=Duration(0),
-            _tw_early=Duration(10),
-            _tw_late=Duration(50),
-            _release_time=Duration(5)
+            _tw_early=Duration(0),
+            _tw_late=Duration(2000),
+            _release_time=Duration(0)
         )
 
         second = DurationSegment(
-            _duration=Duration(150),
+            _duration=Duration(100),
             _time_warp=Duration(0),
-            _tw_early=Duration(120),
+            _tw_early=Duration(170),
             _tw_late=Duration(200),
-            _release_time=Duration(10)
+            _release_time=Duration(0)
         )
 
-        edge_duration = Duration(20)
+        edge_duration = Duration(155)
 
         # Merge the segments
         merged = DurationSegment.merge(edge_duration, first, second)
 
         # Test the merged segment
-        self.assertEqual(Duration(270), merged._duration)  # 100 + 150 + 20
+        self.assertEqual(Duration(255), merged._duration)
         self.assertEqual(Duration(0), merged._time_warp)
-        self.assertEqual(Duration(10), merged._tw_early)
-        self.assertEqual(Duration(50), merged._tw_late)
-        self.assertEqual(Duration(10), merged._release_time)  # max(5, 10)
+        self.assertEqual(Duration(15), merged._tw_early)
+        self.assertEqual(Duration(45), merged._tw_late)
+        self.assertEqual(Duration(0), merged._release_time)
 
     def test_merge_with_time_warp(self):
         first = DurationSegment(
@@ -145,7 +145,6 @@ class TestDurationSegment(unittest.TestCase):
         self.assertEqual(Duration(10), segment.tw_early)
         self.assertEqual(Duration(50), segment.tw_late)
         self.assertEqual(Duration(30), segment.release_time)
-
 
 if __name__ == '__main__':
     unittest.main()

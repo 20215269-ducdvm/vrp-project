@@ -6,9 +6,9 @@ from collections import defaultdict
 from datastructure import VRPSolution
 from helpers.helpers import remove_duplicates
 from datastructure.vrp_objective_function import vrp_solution_to_vector, vector_to_vrp_solution
-from heuristics.guided_local_search.kgls import KGLS
-from heuristics.guided_local_search.kgls.kgls import DEFAULT_PARAMETERS
-from heuristics.guided_local_search.kgls.solution_construction import clark_wright_route_reduction
+from heuristics.kgls import KGLS
+from heuristics.kgls import DEFAULT_PARAMETERS
+from heuristics.kgls.solution_construction import clark_wright_route_reduction
 from pyharmonysearch.harmony_search import HarmonySearchVRP
 
 logging.basicConfig(

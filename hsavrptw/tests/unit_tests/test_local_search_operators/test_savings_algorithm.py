@@ -1,6 +1,6 @@
 
 from datastructure import Node, VRPProblem, CostEvaluator
-from heuristics.guided_local_search.kgls.solution_construction.savings_algorithm import compute_savings, compute_weighted_savings, clark_wright_parallel
+from heuristics.kgls.solution_construction.savings_algorithm import compute_savings, compute_weighted_savings, clark_wright_parallel
 
 
 def test_compute_savings():

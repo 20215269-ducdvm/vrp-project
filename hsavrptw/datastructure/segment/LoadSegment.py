@@ -1,24 +1,56 @@
+from dataclasses import dataclass
+
+from datastructure.metrics import BaseMetric
+
+
+class Load(BaseMetric['Load']):
+    """A strong type for load values."""
+    pass
+
+@dataclass
 class LoadSegment:
-    def __init__(self, load=0, excess=0, capacity=float('inf')):
-        self._load = load
-        self._excess = excess
-        self._capacity = capacity
+    """
+    LoadSegment tracks statistics about route load resulting from visiting clients in a specified order.
+
+    Attributes:
+        _demand: Total load of a segment.
+    """
+    _demand: Load = Load(0)
+
+    @staticmethod
+    def merge(first: 'LoadSegment',
+              second: 'LoadSegment') -> 'LoadSegment':
+        """
+        Merge two load segments with an edge between them.
+
+        Args:
+            edge_load: Load of the edge connecting segments
+            first: First load segment
+            second: Second load segment
+
+        Returns:
+            A new merged load segment
+        """
+
+        return LoadSegment(
+            _demand=Load(first.load + second.load),
+        )
 
     @property
     def load(self):
-        return self._load
+        return self._demand
 
-    @property
-    def excess(self):
-        return self._excess
+    @classmethod
+    def from_client(cls, client) -> 'LoadSegment':
+        """
+        Create a LoadSegment from a client.
 
-    @property
-    def capacity(self):
-        return self._capacity
+        Args:
+            client: The client to create the LoadSegment from.
 
-    @staticmethod
-    def merge(first, second):
-        total_load = first.load() + second.load()
-        excess = max(0, total_load - first.capacity())
-        result = LoadSegment(total_load, excess, first.capacity())
-        return result
+        Returns:
+            A new LoadSegment instance.
+        """
+        return cls(
+            _demand=Load(client.demand),
+        )

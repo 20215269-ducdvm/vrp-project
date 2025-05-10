@@ -1,6 +1,6 @@
 
 from datastructure import Node, VRPProblem, CostEvaluator, VRPSolution
-from heuristics.guided_local_search.kgls.local_search.operator_3_opt import search_3_opt_moves_from
+from heuristics.kgls.local_search.operator_3_opt import search_3_opt_moves_from
 
 
 def build_problem() -> tuple[VRPProblem, CostEvaluator]:

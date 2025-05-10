@@ -1,12 +1,9 @@
 import logging
 import math
-from copy import copy
 from itertools import combinations
 from typing import List
 
 from datastructure import Node, CostEvaluator, VRPProblem, VRPSolution
-from datastructure.node import NodeWithTW
-from datastructure.route import RouteWithTW
 
 logger = logging.getLogger(__name__)
 
@@ -93,8 +90,7 @@ def clark_wright_parallel(
             continue
 
         elif node1 in not_planned and node2 in not_planned:
-            if node1.demand + node2.demand <= vrp_instance.capacity and (
-                    isinstance(node1, NodeWithTW) is False or RouteWithTW(node1, node2).can_update_time_windows()):
+            if node1.demand + node2.demand <= vrp_instance.capacity:
                 # create a new route with node1 and node2
                 solution.add_route(
                     [node1, node2]
@@ -110,19 +106,9 @@ def clark_wright_parallel(
             can_update = True
             if route1.volume + node2.demand <= vrp_instance.capacity:
                 if solution.prev(node1).is_depot:  # add node2 before node1
-                    if isinstance(route1, RouteWithTW):
-                        test_sol = copy(route1).add_customers_after([node2], solution.prev(node1))
-                        if not test_sol.can_update_time_windows():
-                            can_update = False
-                    if can_update is True:
-                        solution.insert_nodes_after([node2], solution.prev(node1), route1)
+                    solution.insert_nodes_after([node2], solution.prev(node1), route1)
                 else:  # add node2 after node1
-                    if isinstance(route1, RouteWithTW):
-                        test_sol = copy(route1).add_customers_after([node2], node1)
-                        if not test_sol.can_update_time_windows():
-                            can_update = False
-                    if can_update is True:
-                        solution.insert_nodes_after([node2], node1, route1)
+                    solution.insert_nodes_after([node2], node1, route1)
 
                 can_be_extended.remove(node1)
                 not_planned.remove(node2)
@@ -134,20 +120,9 @@ def clark_wright_parallel(
             can_update = True
             if route2.volume + node1.demand <= vrp_instance.capacity:
                 if solution.prev(node2).is_depot:  # add node1 before node2
-                    if isinstance(route2, RouteWithTW):
-                        test_sol = copy(route2).add_customers_after([node1], solution.prev(node2))
-                        if not test_sol.can_update_time_windows():
-                            can_update = False
-                    if can_update is True:
-                        solution.insert_nodes_after([node1], solution.prev(node2), route2)
+                    solution.insert_nodes_after([node1], solution.prev(node2), route2)
                 else:  # add node1 after node2
-                    if isinstance(route2, RouteWithTW):
-                        test_sol = copy(route2).add_customers_after([node1], node2)
-                        if not test_sol.can_update_time_windows():
-                            can_update = False
-                    if can_update is True:
-                        solution.insert_nodes_after([node1], node2, route2)
-
+                    solution.insert_nodes_after([node1], node2, route2)
                 can_be_extended.remove(node2)
                 not_planned.remove(node1)
                 cannot_be_extended.append(node2)

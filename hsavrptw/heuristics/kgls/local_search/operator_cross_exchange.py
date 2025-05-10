@@ -1,9 +1,7 @@
 import logging
 
 from datastructure import Node, Route, VRPSolution, CostEvaluator
-from helpers.helpers import create_modified_route
 from .local_search_move import LocalSearchMove
-from datastructure.route import RouteWithTW
 
 logger = logging.getLogger(__name__)
 
@@ -109,20 +107,21 @@ def search_cross_exchanges_from(
                             while (not segment2_end.is_depot and
                                    cost_evaluator.is_feasible_capacity(
                                        route1.volume - segment1_volume + segment2_volume)
-                                   and ((not isinstance(route1, RouteWithTW)) or create_modified_route(route1,
-                                                                                                       segment1_list,
-                                                                                                       segment2_list,
-                                                                                                       route1_segment_connection_start).can_update_time_windows()
-                                   )):
+                                   # and ((not isinstance(route1, RouteWithTW)) or create_modified_route(route1,
+                                   #                                                                     segment1_list,
+                                   #                                                                     segment2_list,
+                                   #                                                                     route1_segment_connection_start).can_update_time_windows()
+                                   # )
+                                    ):
 
                                 # check feasibility of route 2
                                 if cost_evaluator.is_feasible_capacity(
-                                        route2.volume - segment2_volume + segment1_volume) \
-                                        and ((not isinstance(route2, RouteWithTW) or
-                                              create_modified_route(route2, segment2_list, segment1_list,
-                                                                    segment2_start)
-                                                      .can_update_time_windows()
-                                )):
+                                        route2.volume - segment2_volume + segment1_volume):
+                                        # \
+                                        # and ((not isinstance(route2, RouteWithTW) or
+                                        #       create_modified_route(route2, segment2_list, segment1_list,
+                                        #                             segment2_start)
+                                        #               .can_update_time_windows())):
                                     # check overall improvement of move
                                     # route1_segment_connection_end = segment1_end.get_neighbour(segment1_direction)
                                     # route2_segment_connection_end = segment2_end.get_neighbour(segment2_direction)
