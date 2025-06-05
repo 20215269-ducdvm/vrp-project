@@ -1,8 +1,7 @@
 from collections import defaultdict
 import logging
-
-from datastructure import Node, Route, Edge, VRPSolution, CostEvaluator
 from .local_search_move import LocalSearchMove
+from datastructure import Node, Route, Edge, VRPSolution, CostEvaluator
 
 # TODO continue valid chains to find even better improvements
 
@@ -198,6 +197,7 @@ def search_relocation_chains_from(
     # Step 1: Calculate the cost change from removing the node
     cur_prev = solution.prev(node_to_move)
     cur_next = solution.next(node_to_move)
+    #removal_improvement = cost_evaluator.ejection_costs[node_to_move]
     removal_improvement = (
             cost_evaluator.get_distance(node_to_move, cur_prev)
             + cost_evaluator.get_distance(node_to_move, cur_next)
@@ -207,8 +207,6 @@ def search_relocation_chains_from(
     # Step 2: For each candidate neighbour of 'node_to_move',
     # check whether a relocation next to it would improve the solution
     from_route = solution.route_of(node_to_move)
-    # Get the cost of the source route
-
     candidate_insertions = defaultdict(list)
     for neighbour in cost_evaluator.get_neighborhood(node_to_move):
         to_route = solution.route_of(neighbour)
@@ -227,77 +225,24 @@ def search_relocation_chains_from(
                     insertion
                 )
 
+    # TODO this can also be pre-processed
     for destination_route, insertions in candidate_insertions.items():
         best_insertion = sorted(insertions)[0]
         extended_chain = cur_chain.extend(best_insertion)
 
-        # Get the cost of the destination route
-        dist2, load2, tw2 = solution.get_route_penalties(destination_route)
-        to_route_cost = cost_evaluator.get_route_cost(dist2, load2, tw2)
-
-        # Create proposal for source route with the node removed
-        proposal_from_route = from_route.proposal(
-            before_segment=from_route.before(from_route.idx_of[cur_prev.node_id]),
-            middle_segments=[],  # Skip the node_to_move
-            after_segment=from_route.after(from_route.idx_of[cur_next.node_id])
-        )
-
-        # Create proposal for destination route with the node inserted
-
-        # Create the proposal with the node inserted
-        proposal_to_route = destination_route.proposal(
-            before_segment=destination_route.before(destination_route.idx_of[best_insertion.move_after.node_id]),
-            middle_segments=[
-                # Add the node_to_move as a segment
-                # We'll simulate this by using a dummy SegmentMiddle with just the node
-                from_route.at(from_route.idx_of[node_to_move.node_id])
-            ],
-            after_segment=destination_route.after(destination_route.idx_of[best_insertion.move_before.node_id])
-        )
-
-        # Get cost of the destination route proposal
-        proposal_to_cost = cost_evaluator.get_route_cost(
-            proposal_to_route.penalties[0],
-            proposal_to_route.penalties[1],
-            proposal_to_route.penalties[2]
-        )
-
-        # Check if the target route after proposal is feasible
-        if (
-                proposal_from_route.is_feasible and
-                proposal_to_route.is_feasible
-        ) or proposal_to_cost > to_route_cost:
-            valid_relocations_chain.append(extended_chain)
+        # Check feasibility of the target route after insertion
+        new_route_volume = destination_route.volume + extended_chain.demand_changes[destination_route]
+        if cost_evaluator.is_feasible(new_route_volume):
+            valid_relocations_chain.append(
+                extended_chain
+            )
         else:
             if len(extended_chain.relocations) < max_depth:
                 # try to restore feasibility by a follow-up relocation
+                # this can be achieved by ejecting a node in the destination route
                 for candidate_node in destination_route.customers:
-                    if candidate_node not in extended_chain.forbidden_nodes:
-                        # Create a proposal with candidate_node removed from destination route
-                        candidate_prev = solution.prev(candidate_node)
-                        candidate_next = solution.next(candidate_node)
-
-                        proposal_candidate_removed = destination_route.proposal(
-                            before_segment=destination_route.before(destination_route.idx_of[candidate_prev.node_id]),
-                            middle_segments=[
-                                # Add the node_to_move to replace the removed candidate
-                                from_route.at(from_route.idx_of[node_to_move.node_id])
-                            ],
-                            after_segment=destination_route.after(destination_route.idx_of[candidate_next.node_id])
-                        )
-
-                        proposal_with_candidate_removed_cost = cost_evaluator.get_route_cost(
-                            proposal_candidate_removed.penalties[0],
-                            proposal_candidate_removed.penalties[1],
-                            proposal_candidate_removed.penalties[2]
-                        )
-
-                        is_improved = (
-                            proposal_candidate_removed.is_feasible or
-                            proposal_with_candidate_removed_cost > to_route_cost
-                        )
-
-                        if is_improved:
+                    if cost_evaluator.is_feasible(new_route_volume - candidate_node.demand):
+                        if candidate_node not in extended_chain.forbidden_nodes:
                             search_relocation_chains_from(
                                 valid_relocations_chain=valid_relocations_chain,
                                 solution=solution,

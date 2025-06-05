@@ -156,6 +156,20 @@ class VRPSolution:
                     route_id += 1
             file.write(f"Cost: {cost}\n")
 
+    def to_str(self, cost) -> str:
+        """
+        Returns a string representation of the best solution.
+        """
+        output = []
+        route_id = 1
+        for route in self.routes:
+            if route.size > 0:
+                customer_ids = ' '.join(str(node.node_id) for node in route.customers)
+                output.append(f"Route #{route_id}: {customer_ids}")
+                route_id += 1
+        output.append(f"Cost: {cost}")
+        return '\n'.join(output)
+
     def remove_nodes(self, nodes_to_be_removed: list[Node]):
         route = self.route_of(nodes_to_be_removed[0])
 

@@ -1,6 +1,7 @@
 import logging
 import os
 import sys
+import argparse
 from multiprocessing import cpu_count, freeze_support
 from pathlib import Path
 
@@ -30,6 +31,7 @@ def run_hybrid_heuristic_hs(arguments):
     print("Best solution:", best_harmony)
     print("Best fitness:", results.best_fitness)
 
+
 def run_h_kgls(arguments, logger):
     logger.info("Starting Hybrid HS-KGLS algorithm")
 
@@ -41,15 +43,19 @@ def run_h_kgls(arguments, logger):
     # initialize hybrid hs - guided local search algorithm
 
     kgls = KGLS(arguments['<problem_instance>'])
-    pm = PenaltyManager.init_from(problem_instance)
+    # pm = PenaltyManager.init_from(problem_instance)
 
-    kgls.set_abortion_condition("max_runtime", 300)
+    max_runtime = int(arguments.get('--max_runtime', 10))
+    kgls.set_abortion_condition("max_runtime", max_runtime)
 
     # generate first solution using KGLS
     kgls.run(visualize_progress=False)
 
-    kgls.best_solution_to_file(solution_file)
+    best_sol: str = kgls.best_solution.to_str(kgls.best_found_solution_value)
+
+    return best_sol
     # print(f"Gap to BKS: {kgls.best_found_gap:.2f}")
+
 
 def run_hs_kgls(arguments, logger):
     logger.info("Starting Hybrid HS-KGLS algorithm")
@@ -63,47 +69,36 @@ def run_hs_kgls(arguments, logger):
     kgls = KGLS(arguments['<problem_instance>'])
     pm = PenaltyManager.init_from(problem_instance)
     kgls.cost_evaluator.set_infeasible_penalty_weights(pm.penalties[0], pm.penalties[1])
-    kgls.set_abortion_condition("max_runtime", 100)
+
+    max_runtime = int(arguments.get('--max_runtime', 100))
+    kgls.set_abortion_condition("max_runtime", max_runtime)
 
     kgls.run(visualize_progress=False)
 
     kgls.best_solution_to_file(solution_file)
     print(f"Gap to BKS: {kgls.best_found_gap:.2f}")
 
-def run_instance():
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(message)s'
-    )
-    logger = logging.getLogger(__name__)
 
-    dataset = "X/X-n936-k151.vrp"  # Example dataset
-    # dataset = "X/X-n101-k25.vrp"  # Example dataset
-    # dataset = "Antwerp/Antwerp1.vrp"
-    instance_path = f"instances/{dataset}"
-
-    arguments = {
-        '<problem_instance>': instance_path,
-        '--hms': '20',  # Harmony memory size
-        '--hmcr': '0.9',  # Harmony memory consideration rate
-        '--par': '0.3',  # Pitch adjustment rate
-        '--ni': '1000'  # Number of improvisations
-    }
-
+def run_instance(arguments, logger):
     logger.info(f"Problem instance: {arguments['<problem_instance>']}")
 
-    # Uncomment one of these to run
-    # run_hs(arguments)
-    # run_hybrid_heuristic_hs(arguments)
-    run_h_kgls(arguments, logger)
+    algorithm = arguments.get('--algorithm', 'h_kgls')
 
-def run_benchmark():
+    if algorithm == 'hybrid_heuristic_hs':
+        run_hybrid_heuristic_hs(arguments)
+    elif algorithm == 'hs_kgls':
+        run_hs_kgls(arguments, logger)
+    else:  # Default to h_kgls
+        return run_h_kgls(arguments, logger)
+
+
+def run_benchmark(instance_dir, max_runtime=60):
     logging.basicConfig(
         level=logging.INFO,
         format='%(message)s'
     )
     logger = logging.getLogger(__name__)
-    instance_path = os.path.join(Path(__file__).resolve().parent, 'instances/X')
+    instance_path = os.path.join(Path(__file__).resolve().parent, instance_dir)
     all_instances = sorted([f for f in os.listdir(instance_path) if f.endswith('.vrp')])[1:35]
 
     print(len(all_instances), "instances found")
@@ -116,7 +111,7 @@ def run_benchmark():
 
         # Let us use default parameters
         kgls = KGLS(file_path)
-        kgls.set_abortion_condition("max_runtime", 60)
+        kgls.set_abortion_condition("max_runtime", max_runtime)
         kgls.run(visualize_progress=False)
 
         # collects run stats
@@ -133,9 +128,51 @@ def run_benchmark():
     for instance in gaps.keys():
         logger.info(f"{instance:<20}{int(run_times[instance]):<5}{gaps[instance]:.2f}")
 
+
 def main():
-    # run_benchmark()
-    run_instance()
+    parser = argparse.ArgumentParser(description='Vehicle Routing Problem Solver')
+
+    # Add arguments
+    parser.add_argument('instance', help='Path to the problem instance file', nargs='?')
+    parser.add_argument('--algorithm', choices=['h_kgls', 'hs_kgls', 'hybrid_heuristic_hs'],
+                        default='h_kgls', help='Algorithm to use (default: h_kgls)')
+    parser.add_argument('--hms', type=int, default=20, help='Harmony memory size (default: 20)')
+    parser.add_argument('--hmcr', type=float, default=0.9, help='Harmony memory consideration rate (default: 0.9)')
+    parser.add_argument('--par', type=float, default=0.3, help='Pitch adjustment rate (default: 0.3)')
+    parser.add_argument('--ni', type=int, default=1000, help='Number of improvisations (default: 1000)')
+    parser.add_argument('--max_runtime', type=int, default=10, help='Maximum runtime in seconds (default: 10)')
+    parser.add_argument('--benchmark', help='Run benchmark on specified instance directory')
+    parser.add_argument('--benchmark_runtime', type=int, default=60,
+                        help='Maximum runtime per instance in benchmark (default: 60)')
+
+    args = parser.parse_args()
+
+    # Configure logging
+    logging.basicConfig(level=logging.INFO, format='%(message)s')
+    logger = logging.getLogger(__name__)
+
+    # Handle benchmark mode
+    if args.benchmark:
+        run_benchmark(args.benchmark, args.benchmark_runtime)
+        return
+
+    # Ensure we have an instance file for normal operation
+    if not args.instance:
+        parser.error("Instance file path is required unless using --benchmark")
+
+    # Convert args to the expected dictionary format
+    arguments = {
+        '<problem_instance>': args.instance,
+        '--hms': str(args.hms),
+        '--hmcr': str(args.hmcr),
+        '--par': str(args.par),
+        '--ni': str(args.ni),
+        '--algorithm': args.algorithm,
+        '--max_runtime': str(args.max_runtime)
+    }
+    print(arguments)
+    print(run_instance(arguments, logger))
+
 
 if __name__ == '__main__':
     freeze_support()
