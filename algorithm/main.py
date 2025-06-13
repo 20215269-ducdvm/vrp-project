@@ -66,7 +66,8 @@ def run_hs_kgls(arguments, logger):
     problem_instance = read_vrp_instance(arguments['<problem_instance>'])
 
     # initialize guided local search algorithm
-    kgls = KGLS(arguments['<problem_instance>'])
+    kgls = KGLS(arguments['<problem_instance>'],
+               neighborhood_size=len(problem_instance.nodes) if len(problem_instance.nodes) < 20 else 20)
     pm = PenaltyManager.init_from(problem_instance)
     kgls.cost_evaluator.set_infeasible_penalty_weights(pm.penalties[0], pm.penalties[1])
 
@@ -133,14 +134,14 @@ def main():
     parser = argparse.ArgumentParser(description='Vehicle Routing Problem Solver')
 
     # Add arguments
-    parser.add_argument('instance', help='Path to the problem instance file', nargs='?')
+    parser.add_argument('--instance', help='Path to the problem instance file', nargs='?')
     parser.add_argument('--algorithm', choices=['h_kgls', 'hs_kgls', 'hybrid_heuristic_hs'],
                         default='h_kgls', help='Algorithm to use (default: h_kgls)')
     parser.add_argument('--hms', type=int, default=20, help='Harmony memory size (default: 20)')
     parser.add_argument('--hmcr', type=float, default=0.9, help='Harmony memory consideration rate (default: 0.9)')
     parser.add_argument('--par', type=float, default=0.3, help='Pitch adjustment rate (default: 0.3)')
     parser.add_argument('--ni', type=int, default=1000, help='Number of improvisations (default: 1000)')
-    parser.add_argument('--max_runtime', type=int, default=10, help='Maximum runtime in seconds (default: 10)')
+    parser.add_argument('--max_runtime', type=int, default=10, help='Maximum runtime in seconds (default: 300)')
     parser.add_argument('--benchmark', help='Run benchmark on specified instance directory')
     parser.add_argument('--benchmark_runtime', type=int, default=60,
                         help='Maximum runtime per instance in benchmark (default: 60)')

@@ -134,11 +134,18 @@ class KGLS:
 
         self._update_run_stats(start_time)
 
+        # In the run method of KGLS class
         improve_solution(
             solution=self._cur_solution,
             cost_evaluator=self.cost_evaluator,
             start_search_from_routes=self._cur_solution.routes,
             run_parameters=self.run_parameters,
+            abort_checker=lambda: self._abortion_condition.should_abort(
+                iteration=self._iteration,
+                best_iteration=self._best_iteration,
+                start_time=start_time,
+                best_sol_time=self._best_solution_time
+            )
         )
         self._update_run_stats(start_time)
 
@@ -154,12 +161,24 @@ class KGLS:
                 solution=self._cur_solution,
                 cost_evaluator=self.cost_evaluator,
                 run_parameters=self.run_parameters,
+                abort_checker=lambda: self._abortion_condition.should_abort(
+                    iteration=self._iteration,
+                    best_iteration=self._best_iteration,
+                    start_time=start_time,
+                    best_sol_time=self._best_solution_time
+                )
             )
             improve_solution(
                 solution=self._cur_solution,
                 cost_evaluator=self.cost_evaluator,
                 start_search_from_routes=changed_routes,
                 run_parameters=self.run_parameters,
+                abort_checker=lambda: self._abortion_condition.should_abort(
+                    iteration=self._iteration,
+                    best_iteration=self._best_iteration,
+                    start_time=start_time,
+                    best_sol_time=self._best_solution_time
+                )
             )
 
             self._update_run_stats(start_time)

@@ -22,8 +22,11 @@ def improve_route(
         solution: VRPSolution,
         cost_evaluator: CostEvaluator,
         run_parameters: dict[str, Any],
+        abort_checker=None,
 ) -> None:
     start = time.time()
+    if abort_checker and abort_checker():
+        return
 
     if route.size > 2:
         run_lin_kernighan_heuristic(
@@ -58,8 +61,8 @@ def find_best_improving_moves(
         intra_route_opt: bool,
         operator_name: str,
         run_parameters: dict[str, Any],
+        abort_checker=None,
 ) -> tuple[int, set[Route]]:
-
     operators = {
         "relocation_chain": search_relocation_chains,
         "segment_move": search_3_opt_moves,
@@ -74,6 +77,9 @@ def find_best_improving_moves(
     if operator_name not in operators:
         raise ValueError(f"Operator '{operator_name}' is not defined")
 
+    if abort_checker and abort_checker():
+        return 0, set()
+
     start = time.time()
 
     candidate_moves = operators[operator_name](
@@ -85,7 +91,7 @@ def find_best_improving_moves(
     end = time.time()
     solution.solution_stats[f'time_{operator_name}'] += end - start
 
-    if candidate_moves:
+    if candidate_moves and not (abort_checker and abort_checker()):
         # find all disjunct moves, sorted by steepest descent
         logger.debug(
             f'Found {len(candidate_moves)} improving moves, '
@@ -96,12 +102,14 @@ def find_best_improving_moves(
 
         # execute the moves
         for move in disjunct_moves:
+            if abort_checker and abort_checker():
+                break
+
             changed_routes = changed_routes | move.get_routes()
             old_costs = cost_evaluator.get_solution_costs(solution)
 
             move.execute(solution)
             solution.solution_stats[f'move_count_{operator_name}'] += 1
-            # solution.plot(cost_evaluator.get_solution_costs(solution, True))
 
             # validate changes in solution
             new_costs = cost_evaluator.get_solution_costs(solution)
@@ -112,8 +120,10 @@ def find_best_improving_moves(
             solution.validate()
 
         # optimize all changed routes
-        if intra_route_opt:
+        if intra_route_opt and not (abort_checker and abort_checker()):
             for route in changed_routes:
+                if abort_checker and abort_checker():
+                    break
                 improve_route(route, solution, cost_evaluator, run_parameters)
 
         return len(disjunct_moves), changed_routes
@@ -121,41 +131,46 @@ def find_best_improving_moves(
     else:
         return 0, set()
 
-
 def local_search(
         solution: VRPSolution,
         cost_evaluator: CostEvaluator,
         start_from_nodes: set[Node],
         intra_route_opt: bool,
         run_parameters: dict[str, Any],
+        abort_checker=None,
 ) -> tuple[int, set[Route]]:
 
     num_executed_moves = 0
     all_changed_routes = set()
 
     for move_type in run_parameters['moves']:
+        if abort_checker and abort_checker():
+            break
         found_moves, changed_routes = find_best_improving_moves(
             solution=solution,
             cost_evaluator=cost_evaluator,
             start_nodes=start_from_nodes,
             intra_route_opt=intra_route_opt,
             operator_name=move_type,
-            run_parameters=run_parameters
+            run_parameters=run_parameters,
+            abort_checker=abort_checker
         )
         num_executed_moves += found_moves
         all_changed_routes = all_changed_routes | changed_routes
 
     return num_executed_moves, all_changed_routes
 
-
 def improve_solution(
         solution: VRPSolution,
         cost_evaluator: CostEvaluator,
         start_search_from_routes: set[Route],
         run_parameters: dict[str, Any],
+        abort_checker=None,
 ) -> None:
     # intra-route optimization of routes
     for route in start_search_from_routes:
+        if abort_checker and abort_checker():
+            return
         improve_route(route, solution, cost_evaluator, run_parameters)
 
     # inter-route optimization, starting from all routes in 'start_search_from_routes'
@@ -165,20 +180,23 @@ def improve_solution(
     changes_found = True
 
     while changes_found:
+        if abort_checker and abort_checker():
+            return
         executed_moves, _ = local_search(
             solution=solution,
             cost_evaluator=cost_evaluator,
             start_from_nodes=start_from_nodes,
             intra_route_opt=True,
-            run_parameters=run_parameters
+            run_parameters=run_parameters,
+            abort_checker=abort_checker
         )
         changes_found = executed_moves > 0
-
 
 def perturbate_solution(
         solution: VRPSolution,
         cost_evaluator: CostEvaluator,
         run_parameters: dict[str, Any],
+        abort_checker=None,
 ) -> set[Route]:
     logger.debug('Starting perturbation of solution')
 
@@ -190,11 +208,20 @@ def perturbate_solution(
     changed_routes_perturbation = set()
 
     while applied_changes < run_parameters['num_perturbations']:
+        if abort_checker and abort_checker():
+            break
         worst_edge = cost_evaluator.get_and_penalize_worst_edge()
         logger.debug(f'Penalizing edge({worst_edge.get_first_node()} - {worst_edge.get_second_node()})')
         start_from_nodes = [node for node in worst_edge.nodes if not node.is_depot]
 
-        executed_moves, changed_routes = local_search(solution, cost_evaluator, start_from_nodes, False, run_parameters)
+        executed_moves, changed_routes = local_search(
+            solution=solution,
+            cost_evaluator=cost_evaluator,
+            start_from_nodes=start_from_nodes,
+            intra_route_opt=False,
+            run_parameters=run_parameters,
+            abort_checker=abort_checker
+        )
 
         applied_changes += executed_moves
         changed_routes_perturbation.update(changed_routes)
