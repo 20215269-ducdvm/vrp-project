@@ -2,7 +2,7 @@ import sys
 from typing import Optional
 
 from datastructure.segment.DurationSegment import DurationSegment, Duration
-from helpers.helpers import multiply_and_floor, compute_euclidean_distance
+from helpers.helpers import multiply_and_floor, compute_euclidean_distance, truncate_to_decimal
 from .edge import Edge
 from .node import Node
 from .segment.DistanceSegment import DistanceSegment, Distance
@@ -105,7 +105,7 @@ class Route:
         """
         Calculate the total distance of the route.
         """
-        return self.dist_before[-1].distance if self.dist_before else 0
+        return truncate_to_decimal(self.dist_before[-1].distance) if self.dist_before else 0
 
     @property
     def excess_load(self) -> int:
@@ -121,6 +121,10 @@ class Route:
         Check if the route is feasible based on the current load and capacity.
         """
         return self._excess_load <= 0 and self._time_warp == 0
+
+    @property
+    def arrival_times(self) -> list[int]:
+        return [truncate_to_decimal(self.dist_before[i].distance) for i in range(len(self._nodes))]
 
     def validate(self):
         assert self._nodes[0].is_depot, 'First node has to be a depot.'

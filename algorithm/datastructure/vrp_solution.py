@@ -1,9 +1,6 @@
 import sys
 from collections import defaultdict
 
-from matplotlib import pyplot as plt
-from matplotlib.gridspec import GridSpec
-
 from .node import Node
 from .route import Route
 from .vrp_problem import VRPProblem
@@ -34,23 +31,23 @@ class VRPSolution:
             for node in self.problem.customers
         }
 
-    def start_plotting(self):
-        self._plot_progress = True
-
-        self._fig = plt.figure(figsize=(10, 6))
-        gs = GridSpec(3, 4, figure=self._fig)  # 3 rows, 4 columns grid
-        self._ax_routes = self._fig.add_subplot(gs[:, :3])  # Large panel for routes
-        self._ax_chart = self._fig.add_subplot(gs[0, 3])  # Small panel for chart
-        self._time_steps = []
-        self._solution_values = []
-
-        plt.ion()
-
-        self._node_scatter = None
-        self._plotted_edges = []
-
-        self._initialize_plots()
-        plt.show()
+    # def start_plotting(self):
+    #     self._plot_progress = True
+    #
+    #     self._fig = plt.figure(figsize=(10, 6))
+    #     gs = GridSpec(3, 4, figure=self._fig)  # 3 rows, 4 columns grid
+    #     self._ax_routes = self._fig.add_subplot(gs[:, :3])  # Large panel for routes
+    #     self._ax_chart = self._fig.add_subplot(gs[0, 3])  # Small panel for chart
+    #     self._time_steps = []
+    #     self._solution_values = []
+    #
+    #     plt.ion()
+    #
+    #     self._node_scatter = None
+    #     self._plotted_edges = []
+    #
+    #     self._initialize_plots()
+    #     plt.show()
 
     def prev(self, node_index: Node) -> Node:
         return self._prev[node_index.node_id]
@@ -71,19 +68,6 @@ class VRPSolution:
         # All routes are OK
         for route in self.routes:
             route.validate()
-
-        # check problem-specific constraints
-        # for route in self.routes:
-        #     assert route.volume <= self.problem.capacity, \
-        #         f"Capacity violation at route {route._route_index}: {route}"
-        #     # check time windows
-        #     for node in route.customers:
-        #         assert self._route[node.node_id] == route
-        #
-        #     if not hasattr(sys, "VRP_NO_TIME_WINDOWS"):
-        #         for node in route.customers:
-        #             assert node.arrival_time <= node.time_window[1], \
-        #                 f"Time window violation for node {node.node_id}"
 
         # check that nodes are linked correctly
         for route in self.routes:
@@ -166,7 +150,10 @@ class VRPSolution:
             if route.size > 0:
                 customer_ids = ' '.join(str(node.node_id) for node in route.customers)
                 output.append(f"Route #{route_id}: {customer_ids}")
+                output.append(f" Arrival times: {route.arrival_times}")
+                output.append(f" Route distance: {route.total_distance}")
                 route_id += 1
+
         output.append(f"Cost: {cost}")
         return '\n'.join(output)
 
