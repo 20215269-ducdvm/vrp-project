@@ -152,6 +152,7 @@ class VRPSolution:
                 output.append(f"Route #{route_id}: {customer_ids}")
                 output.append(f" Arrival times: {route.arrival_times}")
                 output.append(f" Route distance: {route.total_distance}")
+                output.append(f" Route load: {route.volume}")
                 route_id += 1
 
         output.append(f"Cost: {cost}")
