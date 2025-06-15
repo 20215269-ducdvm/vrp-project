@@ -4,6 +4,7 @@ from itertools import cycle
 import math
 from typing import Any
 
+from .matrices.distance_matrix import DistanceMatrix
 from .node import Node
 from .edge import Edge
 from .route import Route
@@ -31,21 +32,24 @@ class MaxHeapWithUpdate:
 
 class CostEvaluator:
 
-    def __init__(self, nodes: list[Node], capacity: int, run_parameters: dict[str, Any]):
+    def __init__(self, nodes: list[Node], capacity: int, run_parameters: dict[str, Any], distance_matrix: DistanceMatrix = None, explicit_distance: bool = False):
         self._penalization_enabled: bool = False
         self._edge_penalties: dict[Edge, int] = defaultdict(int)
         self._baseline_cost: float = 0.0
         self._edge_ranking: MaxHeapWithUpdate = None
         self.neighborhood_size = run_parameters['neighborhood_size']
+        self._explicit_distance = run_parameters.get('explicit_distances', False)
         self._capacity = capacity
 
         # compute costs as euclidean distance between each pair of nodes
-        self._costs = dict()
-        for node1 in nodes:
-            self._costs[node1.node_id] = dict()
-            for node2 in nodes:
-                self._costs[node1.node_id][node2.node_id] = self._compute_euclidean_distance(node1, node2)
-
+        if explicit_distance:
+            self._costs = distance_matrix.get_matrix()
+        else:
+            self._costs = dict()
+            for node1 in nodes:
+                self._costs[node1.node_id] = dict()
+                for node2 in nodes:
+                    self._costs[node1.node_id][node2.node_id] = self._compute_euclidean_distance(node1, node2)
         # initialize penalized as euclidean costs
         self._penalized_costs = dict()
         for node1 in nodes:

@@ -42,7 +42,7 @@ def run_h_kgls(arguments, logger):
 
     # initialize hybrid hs - guided local search algorithm
 
-    kgls = KGLS(arguments['<problem_instance>'])
+    kgls = KGLS(arguments['<problem_instance>'], explicit_distances=True)
     # pm = PenaltyManager.init_from(problem_instance)
 
     max_runtime = int(arguments.get('--max_runtime', 10))

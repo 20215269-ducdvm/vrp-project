@@ -4,6 +4,7 @@ import time
 from typing import Any, Optional
 
 from datastructure import CostEvaluator, VRPProblem, VRPSolution
+from datastructure.matrices.distance_matrix import DistanceMatrix
 from read_write import read_vrp_instance
 from read_write.solution_reader import read_vrp_solution
 from .local_search import improve_solution, perturbate_solution
@@ -22,7 +23,8 @@ DEFAULT_PARAMETERS = {
     'depth_relocation_chain': 3,
     'num_perturbations': 3,
     'neighborhood_size': 20,
-    'moves': ['segment_move', 'cross_exchange', 'relocation_chain']
+    'moves': ['segment_move', 'cross_exchange', 'relocation_chain'],
+    'explicit_distances': False,  # If True, use explicit distances from the instance file
 }
 
 
@@ -41,6 +43,7 @@ class KGLS:
     def __init__(self, path_to_instance_file: str, **kwargs):
         self.run_parameters = self._get_run_parameters(**kwargs)
         self._vrp_instance = read_vrp_instance(path_to_instance_file)
+        self._distance_matrix = DistanceMatrix(self._vrp_instance.nodes, path_to_instance_file)
         self.cost_evaluator = CostEvaluator(self._vrp_instance.nodes, self._vrp_instance.capacity, self.run_parameters)
         self._best_solution_costs = math.inf
         self._cur_solution = None
