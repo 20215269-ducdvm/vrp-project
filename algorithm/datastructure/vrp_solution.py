@@ -156,6 +156,8 @@ class VRPSolution:
                 route_id += 1
 
         output.append(f"Cost: {cost}")
+        output.append("Execution time: {:.2f} seconds".format(self.solution_stats.get('execution_time', 0)))
+
         return '\n'.join(output)
 
     def remove_nodes(self, nodes_to_be_removed: list[Node]):
