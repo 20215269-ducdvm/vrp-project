@@ -117,6 +117,10 @@ class KGLS:
             "best_costs": self._best_solution_costs,
             "best_gap": None if self._vrp_instance.bks == float('inf') else solution_quality,
         })
+        self._best_solution.solution_stats = {
+            "run_time": time.time() - start_time,
+            "iteration": self._iteration,
+        }
 
     def run(self, visualize_progress: bool = False, start_solution: VRPSolution = None):
         logger.info(f'Running algorithm. {self._abortion_condition.msg}')

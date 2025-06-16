@@ -156,7 +156,8 @@ class VRPSolution:
                 route_id += 1
 
         output.append(f"Cost: {cost}")
-        output.append("Execution time: {:.2f} seconds".format(self.solution_stats.get('execution_time', 0)))
+        output.append("Execution time: {:.2f} seconds".format(self.solution_stats["run_time"]))
+        output.append("Iterations: {}".format(self.solution_stats["iteration"]))
 
         return '\n'.join(output)
 
